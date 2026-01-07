@@ -1,0 +1,8 @@
+[package]
+name = "ecstasy"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+bitvec = "1.0.1"
+uuid7 = "1.4.0"
