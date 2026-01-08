@@ -168,7 +168,7 @@ impl ComponentManager {
         let component_vec = self.component_instances[component_index].as_any_mut();
 
         if let Some(component_vec) = component_vec
-                .downcast_mut::<Vec<Option<T>>>()
+            .downcast_mut::<Vec<Option<T>>>()
         {
             component_vec[entity] = Some(component);
         }
@@ -195,13 +195,21 @@ impl ComponentManager {
     }
 }
 
+/// Structure for managing up to `MAX_ENTITIES` entities.
 #[derive(Debug)]
 pub struct EntityManager {
+    /// Queue of all available entity numerical identifiers.
     available_entities: VecDeque<Entity>,
+    /// Vector of signatures with length equal to the maximum number of entities.
+    /// This allows indexing by the `Entity` type.
     signatures: Vec<EntitySignature>,
+    /// Current number of entities.
     living_entity_count: Entity,
+    /// Map of entities to uuid7 values. Including uuids allows for persistence of entities between
+    /// program executions.
     entity_uuid: HashMap<Entity, String>,
-    uuid_entity: HashMap<String, Entity>
+    /// Map of uuid7 values to entities. Allows for reverse lookup for persistent logic.
+    uuid_entity: HashMap<String, Entity>,
 }
 
 impl EntityManager {
@@ -215,7 +223,8 @@ impl EntityManager {
         }
     }
 
-    pub fn create_entity(&mut self) -> Entity {
+    /// Creates a new blank entity, returning its numerical identifier and its uuid.
+    pub fn create_entity(&mut self) -> (Entity, String) {
         if self.living_entity_count + 1 >= MAX_ENTITIES {
             panic!("Too many entities!");
         }
@@ -225,13 +234,14 @@ impl EntityManager {
         
         let uuid = uuid7().to_string();
         self.entity_uuid.insert(id, uuid.clone());
-        self.uuid_entity.insert(uuid, id);
+        self.uuid_entity.insert(uuid.clone(), id);
 
         self.living_entity_count += 1;
 
-        id
+        (id, uuid)
     }
 
+    /// Creates a new blank entity with a pre-defined uuid.
     pub fn load_entity(&mut self, uuid: String) -> Entity {
         if self.living_entity_count + 1 >= MAX_ENTITIES {
             panic!("Too many entities!");
@@ -252,6 +262,7 @@ impl EntityManager {
         id
     }
 
+    /// Destroys an entity and returns its numerical identifier to the queue.
     pub fn destroy_entity(&mut self, entity: Entity) -> () {
         if entity >= MAX_ENTITIES {
             panic!("Entity out of range");
@@ -268,6 +279,7 @@ impl EntityManager {
         self.living_entity_count -= 1;
     }
 
+    /// Sets the signature of a given entity.
     pub fn set_signature(&mut self, entity: Entity, signature: EntitySignature) -> () {
         if entity >= MAX_ENTITIES {
             panic!("Entity out of range");
@@ -276,25 +288,30 @@ impl EntityManager {
         self.signatures[entity] = signature;
     }
 
+    /// Get the signature of a given entity.
     pub fn get_signature(&self, entity: Entity) -> EntitySignature {
         self.signatures[entity]
     }
 
-    pub fn get_uuid_of_entity(&self, entity: Entity) -> &String {
+    /// Get the uuid of a given entity.
+    pub fn get_uuid(&self, entity: Entity) -> &String {
         &self.entity_uuid[&entity]
     }
 
+    /// Get an entity value from its uuid.
     pub fn get_entity_from_uuid(&self, uuid: &String) -> Entity {
         self.uuid_entity[uuid]
     }
 }
 
+/// Trait that all systems for Ecstasy should implement.
 pub trait TSystem {
     fn new() -> Self;
     fn start(&mut self, dt: f32, world: *mut World) -> ();
     fn update(&mut self, dt: f32, world: *mut World) -> ();
 }
 
+/// Structure for managing systems.
 struct SystemManager {
 }
 
@@ -304,9 +321,13 @@ impl SystemManager {
     }
 }
 
+/// Composite structure for holding and managing all aspects of Ecstasy.
 pub struct World {
+    /// Manager for entities.
     entity_manager: EntityManager,
+    /// Manager for components.
     component_manager: ComponentManager,
+    /// Manager for systems.
     system_manager: SystemManager,
 }
 
@@ -319,26 +340,45 @@ impl World {
         }
     }
 
-    pub fn create_entity(&mut self) -> Entity {
+    /// Create a new entity, returning its numerical identifier and uuid.
+    pub fn create_entity(&mut self) -> (Entity, String) {
         self.entity_manager.create_entity()
     }
 
+    /// Destroy an entity.
     pub fn destroy_entity(&mut self, entity: Entity) -> () {
         self.entity_manager.destroy_entity(entity)
     }
 
+    /// Get the signature of an entity.
     pub fn get_signature(&self, entity: Entity) -> EntitySignature {
         self.entity_manager.get_signature(entity)
     }
 
+    /// Register a new component type.
     pub fn register_component<T: 'static>(&mut self) {
         self.component_manager.register_component::<T>();
     }
 
+    /// Get the numerical representation of a component.
     pub(crate) fn get_component_type<T: 'static>(&self) -> ComponentType {
         self.component_manager.get_type::<T>()
     }
 
+    /// Assign a given component to a given entity.
+    ///
+    /// For example:
+    /// ```rust
+    /// struct Health(i32);
+    ///
+    /// let world = World::new();
+    /// world.register_component::<Health>();
+    ///
+    /// let (e0, _) = world.create_entity();
+    ///
+    /// world.assign(e0, Health(100));
+    ///
+    /// ```
     pub fn assign<Component: 'static>(&mut self, entity: Entity, component: Component) -> () {
         let mut entity_sig = self.get_signature(entity);
         let component_type = self.get_component_type::<Component>();
@@ -349,6 +389,7 @@ impl World {
         self.component_manager.set_component(entity, component);
     }
 
+    /// Remove a component from a given entity.
     pub fn remove<Component: 'static>(&mut self, entity: Entity) -> () {
         let mut entity_sig = self.get_signature(entity);
         let component_type = self.get_component_type::<Component>();
