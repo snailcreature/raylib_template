@@ -1,26 +1,43 @@
+//! A basic entity component system
 use std::{any::type_name, collections::{HashMap, VecDeque}, fmt::Debug};
-use bitvec::{BitArr, bitarr, order::Lsb0};
+use bitvec::{BitArr, array::BitArray, bitarr, order::Lsb0, view::BitViewSized};
 use uuid7::uuid7;
 
+/// Numerical representation of a component, expressed as a power of 2.
+///
+/// e.g. The first component will have value 1 (2^0), followed by 2 (2^1),
+/// then 4 (2^2).
 pub type ComponentType = usize;
 
+/// The maximum number of components able to be registered.
 pub const MAX_COMPONENTS: ComponentType = size_of::<ComponentType>() * 8;
 
+/// Numerical representation of an entity, used as an index for component vectors.
 pub type Entity = usize;
 
+/// The maximum number of entities that can exist at once.
 pub const MAX_ENTITIES: Entity = 5000;
 
+/// A signature used to annotate an entity denoting which components it has assigned to it.
+/// Assign component => `entity = entity | component`
+/// Remove component => `entity = entity ^ component`
 type EntitySignature = BitArr!(for MAX_ENTITIES, in Entity);
 
+/// A signature used to filter entities to pass to this system.
+/// If `entity & system == system`, then entity is affected by system.
 type SystemSignature = BitArr!(for MAX_COMPONENTS, in ComponentType);
 
-trait IComponentVec {
+/// Trait for vectors of component values.
+trait TComponentVec {
+    /// Get an immutable version of the vector.
     fn as_any(&self) -> &dyn std::any::Any;
+    /// Get a mutable version of the vector
     fn as_any_mut(&mut self) -> &mut dyn std::any::Any;
+    /// Add a None to the vector.
     fn push_none(&mut self) -> ();
 }
 
-impl<T: 'static> IComponentVec for Vec<Option<T>> {
+impl<T: 'static> TComponentVec for Vec<Option<T>> {
     fn push_none(&mut self) -> () {
         self.push(None);
     }
@@ -34,10 +51,16 @@ impl<T: 'static> IComponentVec for Vec<Option<T>> {
     }
 }
 
-pub struct ComponentManager {
+/// Object for storing and managing components.
+pub struct ComponentManager { 
+    /// A hash map of component type names to their numerical type.
     component_types: HashMap<String, ComponentType>,
+    /// Maps the numerical type of a component to the index of the component vector.
     component_index_map: HashMap<ComponentType, usize>,
-    component_instances: Vec<Box<dyn IComponentVec>>,
+    /// A vector of vectors containing each instance of a component.
+    component_instances: Vec<Box<dyn TComponentVec>>,
+    /// The number of existing component types. i.e. the size of component_instances, *not* the sum
+    /// of all component instances stored.
     components: usize,
 }
 
@@ -50,6 +73,16 @@ impl ComponentManager {
             components: 0,
         }
     }
+
+    /// Register a new component type.
+    ///
+    /// Example:
+    /// ```rust
+    /// struct Health(i32);
+    ///
+    /// let cm = ComponentManager::new();
+    /// cm.register_component::<Health>();
+    /// ```
     pub fn register_component<T: 'static>(&mut self) -> () {
         let type_name: &str = type_name::<T>();
 
@@ -77,6 +110,7 @@ impl ComponentManager {
         self.components += 1;
     }
 
+    /// Get the numerical representation of the named component.
     pub fn get_component_type(&self, name: String) -> ComponentType {
         if !self.component_types.contains_key(&name) {
             panic!("Component does not exist");
@@ -85,6 +119,7 @@ impl ComponentManager {
         self.component_types[&name]
     }
 
+    /// Get the numerical representation of the given component.
     pub fn get_type<T: 'static>(&self) -> ComponentType {
         let name: &str = type_name::<T>();
 
@@ -95,6 +130,31 @@ impl ComponentManager {
         self.component_types[name]
     }
 
+    /// Returns whether the given entity has the given component.
+    pub fn has<T: 'static>(&self, entity: Entity) -> bool {
+        let type_name: &str = type_name::<T>();
+
+        if !self.component_types.contains_key(type_name) {
+            panic!("Component does not exist");
+        }
+
+        let component_type = self.component_types[type_name];
+        let component_index = self.component_index_map[&component_type];
+
+        let component_vec = self.component_instances[component_index].as_any();
+
+        if let Some(component_vec) = component_vec
+            .downcast_ref::<Vec<Option<T>>>()
+        {
+            if let Some(_) = component_vec[entity]
+            {
+                return true;
+            }
+        }
+        false
+    }
+
+    /// Set the value of a component for an entity.
     pub fn set_component<T: 'static>(&mut self, entity: Entity, component: T) {
         let type_name: &str = type_name::<T>();
 
@@ -111,6 +171,26 @@ impl ComponentManager {
                 .downcast_mut::<Vec<Option<T>>>()
         {
             component_vec[entity] = Some(component);
+        }
+    }
+
+    /// Set the value of a component for an entity to `None`.
+    pub fn remove_component<T: 'static>(&mut self, entity: Entity) {
+        let type_name: &str = type_name::<T>();
+
+        if !self.component_types.contains_key(type_name) {
+            panic!("Component does not exist");
+        }
+
+        let component_type = self.component_types[type_name];
+        let component_index = self.component_index_map[&component_type];
+
+        let component_vec = self.component_instances[component_index].as_any_mut();
+
+        if let Some(component_vec) = component_vec
+            .downcast_mut::<Vec<Option<T>>>()
+        {
+            component_vec[entity] = None;
         }
     }
 }
@@ -209,9 +289,25 @@ impl EntityManager {
     }
 }
 
+pub trait TSystem {
+    fn new() -> Self;
+    fn start(&mut self, dt: f32, world: *mut World) -> ();
+    fn update(&mut self, dt: f32, world: *mut World) -> ();
+}
+
+struct SystemManager {
+}
+
+impl SystemManager {
+    pub fn new() -> Self {
+        Self {}
+    }
+}
+
 pub struct World {
     entity_manager: EntityManager,
     component_manager: ComponentManager,
+    system_manager: SystemManager,
 }
 
 impl World {
@@ -219,6 +315,7 @@ impl World {
         Self {
             entity_manager: EntityManager::new(),
             component_manager: ComponentManager::new(),
+            system_manager: SystemManager::new(),
         }
     }
 
@@ -226,7 +323,7 @@ impl World {
         self.entity_manager.create_entity()
     }
 
-    pub fn remove_entity(&mut self, entity: Entity) -> () {
+    pub fn destroy_entity(&mut self, entity: Entity) -> () {
         self.entity_manager.destroy_entity(entity)
     }
 
@@ -238,7 +335,27 @@ impl World {
         self.component_manager.register_component::<T>();
     }
 
-    pub fn get_component_type<T: 'static>(&self) -> ComponentType {
+    pub(crate) fn get_component_type<T: 'static>(&self) -> ComponentType {
         self.component_manager.get_type::<T>()
+    }
+
+    pub fn assign<Component: 'static>(&mut self, entity: Entity, component: Component) -> () {
+        let mut entity_sig = self.get_signature(entity);
+        let component_type = self.get_component_type::<Component>();
+
+        entity_sig = entity_sig | component_type.into_bitarray();
+
+        self.entity_manager.set_signature(entity, entity_sig);
+        self.component_manager.set_component(entity, component);
+    }
+
+    pub fn remove<Component: 'static>(&mut self, entity: Entity) -> () {
+        let mut entity_sig = self.get_signature(entity);
+        let component_type = self.get_component_type::<Component>();
+
+        entity_sig = entity_sig ^ component_type.into_bitarray();
+
+        self.entity_manager.set_signature(entity, entity_sig);
+        self.component_manager.remove_component::<Component>(entity);
     }
 }
