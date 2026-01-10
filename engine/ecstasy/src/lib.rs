@@ -12,7 +12,7 @@ mod tests {
     fn entity_test() {
         let mut world = World::new();
 
-        let entity0 = world.create_entity();
+        let (entity0, _) = world.create_entity();
 
         assert_eq!(entity0, 0);
     }

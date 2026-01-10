@@ -1,6 +1,6 @@
 //! A basic entity component system
 use std::{any::type_name, collections::{HashMap, VecDeque}, fmt::Debug};
-use bitvec::{BitArr, array::BitArray, bitarr, order::Lsb0, view::BitViewSized};
+use bitvec::{BitArr, bitarr, order::Lsb0, view::BitViewSized};
 use uuid7::uuid7;
 
 /// Numerical representation of a component, expressed as a power of 2.
@@ -311,6 +311,9 @@ pub trait TSystem {
     fn update(&mut self, dt: f32, world: *mut World) -> ();
 }
 
+
+
+
 /// Structure for managing systems.
 struct SystemManager {
 }
@@ -400,3 +403,47 @@ impl World {
         self.component_manager.remove_component::<Component>(entity);
     }
 }
+
+pub mod macros {
+    /// Create a trait for handling a system's signature.
+    ///
+    /// For example:
+    /// ```rust
+    /// struct Health(i32);
+    /// struct Armour(i32);
+    /// struct Level(i32);
+    ///
+    /// struct DamageSystem;
+    ///
+    /// t_system!(TDamageSystem; Health, Armour, Level;);
+    ///
+    /// impl TDamageSystem for DamageSystem {
+    ///     fn start(&mut self, dt: f32, world: *mut $crate::ecs::World, entities: Vec<(Health, Armour, Level)>) -> () {
+    ///         /* Do something... */
+    ///     }
+    ///
+    ///     /* The rest... */
+    /// }
+    /// ```
+    #[macro_export]
+    macro_rules! t_system {
+        ($system_name:ident) => (
+            pub trait $system_name {
+                fn new() -> Self;
+                fn start(&mut self, dt: f32, world: *mut $crate::ecs::World) -> ();
+                fn update(&mut self, dt: f32, world: *mut $crate::ecs::World) -> ();
+                fn stop(&mut self, dt: f32, world: *mut $crate::ecs::World) -> ();
+            }
+        );
+        ($system_name:ident; $($component:ty),+;) => (
+            pub trait $system_name {
+                fn new() -> Self;
+                fn start(&mut self, dt: f32, world: *mut $crate::ecs::World, entities: Vec<($($component),+)>) -> ();
+                fn update(&mut self, dt: f32, world: *mut $crate::ecs::World, entities: Vec<($($component),+)>) -> ();
+                fn stop(&mut self, dt: f32, world: *mut $crate::ecs::World, entities: Vec<($($component),+)>) -> ();
+            }
+        );
+    }
+}
+
+
