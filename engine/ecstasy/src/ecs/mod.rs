@@ -3,6 +3,8 @@ use std::{any::type_name, collections::{HashMap, VecDeque}, fmt::Debug};
 use bitvec::{BitArr, bitarr, order::Lsb0, view::BitViewSized};
 use uuid7::uuid7;
 
+use crate::{system_type, type_names, type_tuple};
+
 pub mod macros;
 
 /// Numerical representation of a component, expressed as a power of 2.
@@ -314,7 +316,13 @@ pub trait TSystem {
 }
 
 
-
+pub trait System<T = ()> {
+    fn new() -> Self;
+    fn start(&mut self, dt: f32, world: *mut World, entities: Vec<T>) -> ();
+    fn update(&mut self, dt: f32, world: *mut World, entities: Vec<T>) -> ();
+    fn stop(&mut self, dt: f32, world: *mut World, entities: Vec<T>) -> ();
+    fn get_component_types(&self) -> Vec<&'static str>;
+}
 
 /// Structure for managing systems.
 struct SystemManager {
@@ -405,4 +413,3 @@ impl World {
         self.component_manager.remove_component::<Component>(entity);
     }
 }
-

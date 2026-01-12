@@ -6,7 +6,7 @@ pub mod prelude {
 
 #[cfg(test)]
 mod tests {
-    use crate::t_system;
+    use crate::{ecs::System, type_names, type_tuple};
 
     use super::{prelude::World, ecs::macros::*};
 
@@ -36,30 +36,35 @@ mod tests {
     fn system_macro_test() {
         struct Health;
         struct Armour;
-        t_system!(TestSystem; Health, Armour;);
 
         struct Test;
 
-        impl TestSystem for Test {
+        impl System<(Health, Armour)> for Test {
             fn new() -> Self {
                 Self
             }
 
-            fn start(&mut self,dt:f32,world: *mut crate::ecs::World,entities:Vec<(Health,Armour)>) -> () {
+            fn start(&mut self, dt: f32, world: *mut World, entities: Vec<(Health, Armour)>) {
                 
             }
 
-            fn update(&mut self,dt:f32,world: *mut crate::ecs::World,entities:Vec<(Health,Armour)>) -> () {
+            fn update(&mut self, dt: f32, world: *mut World, entities: Vec<(Health, Armour)>) -> () {
                 
             }
 
-            fn stop(&mut self,dt:f32,world: *mut crate::ecs::World,entities:Vec<(Health,Armour)>) -> () {
+            fn stop(&mut self, dt: f32, world: *mut World, entities: Vec<(Health, Armour)>) -> () {
                 
+            }
+
+            fn get_component_types(&self) -> Vec<&'static str> {
+                vec!["Health", "Armour"]
             }
         }
 
-        let test0 = Test::new();
+        let test = Test::new();
 
-        assert_eq!(Test::COMPONENTS, ("Health", "Armour"));
+        let comp_types = test.get_component_types();
+        
+        assert_eq!(comp_types, vec!["Health", "Armour"])
     }
 }
