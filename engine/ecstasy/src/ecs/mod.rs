@@ -1,5 +1,5 @@
 //! A basic entity component system
-use std::{any::type_name, collections::{HashMap, VecDeque}, fmt::Debug};
+use std::{any::type_name, cell::RefCell, collections::{HashMap, VecDeque}, fmt::Debug};
 use bitvec::{BitArr, bitarr, order::Lsb0};
 use uuid7::uuid7;
 
@@ -22,6 +22,7 @@ pub const MAX_ENTITIES: Entity = 5000;
 
 /// A signature used to annotate an entity denoting which components it has assigned to it.
 /// Assign component => `entity = entity | component`
+/// Has component => `entity & component == component`
 /// Remove component => `entity = entity ^ component`
 type EntitySignature = BitArr!(for MAX_ENTITIES, in Entity);
 
@@ -35,15 +36,9 @@ trait TComponentVec {
     fn as_any(&self) -> &dyn std::any::Any;
     /// Get a mutable version of the vector
     fn as_any_mut(&mut self) -> &mut dyn std::any::Any;
-    /// Add a None to the vector.
-    fn push_none(&mut self) -> ();
 }
 
-impl<T: 'static> TComponentVec for Vec<Option<T>> {
-    fn push_none(&mut self) -> () {
-        self.push(None);
-    }
-
+impl<T: 'static> TComponentVec for RefCell<Vec<Option<T>>> {
     fn as_any(&self) -> &dyn std::any::Any {
         self as &dyn std::any::Any
     }
@@ -103,7 +98,7 @@ impl ComponentManager {
         self.component_types.insert(type_name.to_string(), component_type);
         self.component_index_map.insert(component_type, self.components);
 
-        let new_vec: Vec<Option<T>> = Vec::from_iter(std::array::from_fn::<Option<T>, MAX_ENTITIES, _>(|_| None));
+        let new_vec: RefCell<Vec<Option<T>>> = Vec::from_iter(std::array::from_fn::<Option<T>, MAX_ENTITIES, _>(|_| None)).into();
         self.component_instances.push(Box::new(new_vec));
 
         self.components += 1;
@@ -127,30 +122,6 @@ impl ComponentManager {
         }
 
         self.component_types[name]
-    }
-
-    /// Returns whether the given entity has the given component.
-    pub fn has<T: 'static>(&self, entity: Entity) -> bool {
-        let type_name: &str = type_name::<T>();
-
-        if !self.component_types.contains_key(type_name) {
-            panic!("Component does not exist");
-        }
-
-        let component_type = self.component_types[type_name];
-        let component_index = self.component_index_map[&component_type];
-
-        let component_vec = self.component_instances[component_index].as_any();
-
-        if let Some(component_vec) = component_vec
-            .downcast_ref::<Vec<Option<T>>>()
-        {
-            if let Some(_) = component_vec[entity]
-            {
-                return true;
-            }
-        }
-        false
     }
 
     /// Set the value of a component for an entity.
@@ -410,6 +381,14 @@ impl World {
 
         self.entity_manager.set_signature(entity, entity_sig);
         self.component_manager.set_component(entity, component);
+    }
+
+    /// Returns whether the given entity has the given component.
+    pub(crate) fn has<Component: 'static>(&self, entity: Entity) -> bool {
+        let entity_sig = self.get_signature(entity);
+        let component_type = self.get_component_type::<Component>();
+
+        entity_sig & component_type == component_type
     }
 
     /// Remove a component from a given entity.
