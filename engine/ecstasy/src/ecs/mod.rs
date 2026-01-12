@@ -3,18 +3,16 @@ use std::{any::type_name, collections::{HashMap, VecDeque}, fmt::Debug};
 use bitvec::{BitArr, bitarr, order::Lsb0, view::BitViewSized};
 use uuid7::uuid7;
 
-use crate::{system_type, type_names, type_tuple};
-
 pub mod macros;
 
 /// Numerical representation of a component, expressed as a power of 2.
 ///
 /// e.g. The first component will have value 1 (2^0), followed by 2 (2^1),
 /// then 4 (2^2).
-pub type ComponentType = usize;
+pub type ComponentType = BitArr!(for size_of::<usize>() * 8, in usize);
 
 /// The maximum number of components able to be registered.
-pub const MAX_COMPONENTS: ComponentType = size_of::<ComponentType>() * 8;
+pub const MAX_COMPONENTS: usize = size_of::<usize>() * 8;
 
 /// Numerical representation of an entity, used as an index for component vectors.
 pub type Entity = usize;
@@ -54,7 +52,7 @@ impl<T: 'static> TComponentVec for Vec<Option<T>> {
         self as &mut dyn std::any::Any
     }
 }
-
+// vec![bitarr!(Entity, Lsb0; 0; MAX_ENTITIES); MAX_ENTITIES]
 /// Object for storing and managing components.
 pub struct ComponentManager { 
     /// A hash map of component type names to their numerical type.
@@ -94,16 +92,13 @@ impl ComponentManager {
             panic!("Component already registered");
         }
 
-        if self.components >= MAX_COMPONENTS {
+        if self.components > MAX_COMPONENTS {
             panic!("No more available components")
         }
 
-        let component_type = (2 as usize)
-            .pow(self.components
-                .try_into()
-                .unwrap_or_else(|x| panic!("Output: {}", x))
-                );
-            
+        let mut component_type = bitarr!(usize, Lsb0; 0; MAX_COMPONENTS);
+        
+        component_type.set((MAX_COMPONENTS - 1) - self.components, true);
 
         self.component_types.insert(type_name.to_string(), component_type);
         self.component_index_map.insert(component_type, self.components);
@@ -396,7 +391,7 @@ impl World {
         let mut entity_sig = self.get_signature(entity);
         let component_type = self.get_component_type::<Component>();
 
-        entity_sig = entity_sig | component_type.into_bitarray();
+        entity_sig = entity_sig | component_type;
 
         self.entity_manager.set_signature(entity, entity_sig);
         self.component_manager.set_component(entity, component);
@@ -407,7 +402,7 @@ impl World {
         let mut entity_sig = self.get_signature(entity);
         let component_type = self.get_component_type::<Component>();
 
-        entity_sig = entity_sig ^ component_type.into_bitarray();
+        entity_sig = entity_sig ^ component_type;
 
         self.entity_manager.set_signature(entity, entity_sig);
         self.component_manager.remove_component::<Component>(entity);

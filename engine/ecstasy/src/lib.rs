@@ -6,9 +6,11 @@ pub mod prelude {
 
 #[cfg(test)]
 mod tests {
-    use crate::{ecs::System, type_names, type_tuple};
+    use bitvec::{bitarr, order::Lsb0};
 
-    use super::{prelude::World, ecs::macros::*};
+    use crate::{ecs::{MAX_COMPONENTS, System}};
+
+    use super::{prelude::World};
 
     #[test]
     fn entity_test() {
@@ -29,7 +31,9 @@ mod tests {
 
         let health_type = world.get_component_type::<Health>();
 
-        assert_eq!(health_type, 1, "Got {}", health_type);
+        let mut test = bitarr!(usize, Lsb0; 0; MAX_COMPONENTS);
+        test.set(MAX_COMPONENTS - 1, true);
+        assert_eq!(health_type, test);
     }
 
     #[test]
