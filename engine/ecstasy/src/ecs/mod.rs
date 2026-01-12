@@ -1,6 +1,6 @@
 //! A basic entity component system
 use std::{any::type_name, collections::{HashMap, VecDeque}, fmt::Debug};
-use bitvec::{BitArr, bitarr, order::Lsb0, view::BitViewSized};
+use bitvec::{BitArr, bitarr, order::Lsb0};
 use uuid7::uuid7;
 
 pub mod macros;
@@ -304,18 +304,33 @@ impl EntityManager {
 }
 
 /// Trait that all systems for Ecstasy should implement.
-pub trait TSystem {
+pub trait System<ComponentTypes = ()> {
+    /// Create a new instance of the system
     fn new() -> Self;
-    fn start(&mut self, dt: f32, world: *mut World) -> ();
-    fn update(&mut self, dt: f32, world: *mut World) -> ();
-}
-
-
-pub trait System<T = ()> {
-    fn new() -> Self;
-    fn start(&mut self, dt: f32, world: *mut World, entities: Vec<T>) -> ();
-    fn update(&mut self, dt: f32, world: *mut World, entities: Vec<T>) -> ();
-    fn stop(&mut self, dt: f32, world: *mut World, entities: Vec<T>) -> ();
+    /// Process that should run when the system first starts.
+    fn start(&mut self, _dt: f32, _world: *mut World, _entities: Vec<(Entity, ComponentTypes)>) -> () {}
+    /// Process to run every frame.
+    fn update(&mut self, _dt: f32, _world: *mut World, _entities: Vec<(Entity, ComponentTypes)>) -> () {}
+    /// Process to run when the system is stopped.
+    fn stop(&mut self, _dt: f32, _world: *mut World, _entities: Vec<(Entity, ComponentTypes)>) -> () {}
+    /// Helper function for `SystemManager` that should return a Vec of the names of the components
+    /// this system works on in the order presented in the generic.
+    ///
+    /// For example,
+    /// ```rust,ignore
+    /// struct DamageSystem;
+    ///
+    /// impl System<(Health, Armour)> for DamageSystem {
+    ///     fn new() -> Self {
+    ///         Self {  }
+    ///     }
+    ///
+    ///     fn get_component_types(&self) -> Vec<&'static str> {
+    ///         vec!["Health", "Armour"]
+    ///     }
+    /// }
+    ///
+    /// ```
     fn get_component_types(&self) -> Vec<&'static str>;
 }
 

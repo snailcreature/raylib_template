@@ -8,7 +8,7 @@ pub mod prelude {
 mod tests {
     use bitvec::{bitarr, order::Lsb0};
 
-    use crate::{ecs::{MAX_COMPONENTS, System}};
+    use crate::ecs::{MAX_COMPONENTS, System};
 
     use super::{prelude::World};
 
@@ -46,18 +46,6 @@ mod tests {
         impl System<(Health, Armour)> for Test {
             fn new() -> Self {
                 Self
-            }
-
-            fn start(&mut self, dt: f32, world: *mut World, entities: Vec<(Health, Armour)>) {
-                
-            }
-
-            fn update(&mut self, dt: f32, world: *mut World, entities: Vec<(Health, Armour)>) -> () {
-                
-            }
-
-            fn stop(&mut self, dt: f32, world: *mut World, entities: Vec<(Health, Armour)>) -> () {
-                
             }
 
             fn get_component_types(&self) -> Vec<&'static str> {
