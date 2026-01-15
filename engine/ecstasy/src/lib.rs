@@ -44,16 +44,12 @@ mod tests {
         struct Test;
 
         impl System<(Health, Armour)> for Test {
-            fn new() -> Self {
-                Self
-            }
-
             fn get_component_types(&self) -> Vec<&'static str> {
                 vec!["Health", "Armour"]
             }
         }
 
-        let test = Test::new();
+        let test = Test { };
 
         let comp_types = test.get_component_types();
         

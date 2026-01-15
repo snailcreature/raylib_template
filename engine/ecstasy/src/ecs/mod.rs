@@ -1,15 +1,14 @@
 //! A basic entity component system
-use std::{any::type_name, cell::RefCell, collections::{HashMap, VecDeque}, fmt::Debug};
-use bitvec::{BitArr, bitarr, order::Lsb0};
+use std::{any::{TypeId, type_name, type_name_of_val}, cell::RefCell, collections::{BTreeSet, HashMap, VecDeque}, fmt::Debug};
+use bitvec::{BitArr, array::BitArray, bitarr, order::Lsb0};
 use uuid7::uuid7;
 
 pub mod macros;
 
-/// Numerical representation of a component, expressed as a power of 2.
-///
-/// e.g. The first component will have value 1 (2^0), followed by 2 (2^1),
-/// then 4 (2^2).
-pub type ComponentType = BitArr!(for size_of::<usize>() * 8, in usize);
+type ComponentRef = usize;
+
+/// Unique signature of a component represented as a bit array.
+pub type ComponentSignature = BitArr!(for size_of::<usize>() * 8, in usize);
 
 /// The maximum number of components able to be registered.
 pub const MAX_COMPONENTS: usize = size_of::<usize>() * 8;
@@ -24,11 +23,11 @@ pub const MAX_ENTITIES: Entity = 5000;
 /// Assign component => `entity = entity | component`
 /// Has component => `entity & component == component`
 /// Remove component => `entity = entity ^ component`
-type EntitySignature = BitArr!(for MAX_ENTITIES, in Entity);
+type EntitySignature = BitArr!(for MAX_COMPONENTS, in ComponentRef);
 
 /// A signature used to filter entities to pass to this system.
 /// If `entity & system == system`, then entity is affected by system.
-type SystemSignature = BitArr!(for MAX_COMPONENTS, in ComponentType);
+type SystemSignature = BitArr!(for MAX_COMPONENTS, in ComponentRef);
 
 /// Trait for vectors of component values.
 trait TComponentVec {
@@ -47,13 +46,14 @@ impl<T: 'static> TComponentVec for RefCell<Vec<Option<T>>> {
         self as &mut dyn std::any::Any
     }
 }
+
 // vec![bitarr!(Entity, Lsb0; 0; MAX_ENTITIES); MAX_ENTITIES]
 /// Object for storing and managing components.
 pub struct ComponentManager { 
     /// A hash map of component type names to their numerical type.
-    component_types: HashMap<String, ComponentType>,
+    component_types: HashMap<String, ComponentSignature>,
     /// Maps the numerical type of a component to the index of the component vector.
-    component_index_map: HashMap<ComponentType, usize>,
+    component_index_map: HashMap<ComponentSignature, usize>,
     /// A vector of vectors containing each instance of a component.
     component_instances: Vec<Box<dyn TComponentVec>>,
     /// The number of existing component types. i.e. the size of component_instances, *not* the sum
@@ -105,7 +105,7 @@ impl ComponentManager {
     }
 
     /// Get the numerical representation of the named component.
-    pub fn get_component_type(&self, name: String) -> ComponentType {
+    pub fn get_component_type(&self, name: String) -> ComponentSignature {
         if !self.component_types.contains_key(&name) {
             panic!("Component does not exist");
         }
@@ -114,7 +114,7 @@ impl ComponentManager {
     }
 
     /// Get the numerical representation of the given component.
-    pub fn get_type<T: 'static>(&self) -> ComponentType {
+    pub fn get_type<T: 'static>(&self) -> ComponentSignature {
         let name: &str = type_name::<T>();
 
         if !self.component_types.contains_key(name) {
@@ -126,41 +126,64 @@ impl ComponentManager {
 
     /// Set the value of a component for an entity.
     pub fn set_component<T: 'static>(&mut self, entity: Entity, component: T) {
-        let type_name: &str = type_name::<T>();
+        let name: &str = type_name::<T>();
 
-        if !self.component_types.contains_key(type_name) {
+        if !self.component_types.contains_key(name) {
             panic!("Component does not exist");
         }
 
-        let component_type = self.component_types[type_name];
+        let component_type = self.component_types[name];
         let component_index = self.component_index_map[&component_type];
 
         let component_vec = self.component_instances[component_index].as_any_mut();
 
         if let Some(component_vec) = component_vec
-            .downcast_mut::<Vec<Option<T>>>()
+            .downcast_mut::<RefCell<Vec<Option<T>>>>()
         {
-            component_vec[entity] = Some(component);
+            component_vec.get_mut()[entity] = Some(component);
         }
+    }
+
+    pub fn get_component<T: 'static>(&mut self, entity: Entity) -> Option<&mut T> {
+        let name = type_name::<T>();
+
+        if !self.component_types.contains_key(name) {
+            panic!("Component does not exist");
+        }
+
+        let component_type = self.component_types[name];
+        let component_index = self.component_index_map[&component_type];
+
+        let component_vec = self.component_instances[component_index].as_any_mut();
+
+        if let Some(component_vec) = component_vec
+            .downcast_mut::<RefCell<Vec<Option<T>>>>()
+        {
+            if let Some(component) = component_vec.get_mut().get_mut(entity)
+            {
+                return Some(component.as_mut().unwrap())
+            }
+        }
+        None
     }
 
     /// Set the value of a component for an entity to `None`.
     pub fn remove_component<T: 'static>(&mut self, entity: Entity) {
-        let type_name: &str = type_name::<T>();
+        let name: &str = type_name::<T>();
 
-        if !self.component_types.contains_key(type_name) {
+        if !self.component_types.contains_key(name) {
             panic!("Component does not exist");
         }
 
-        let component_type = self.component_types[type_name];
+        let component_type = self.component_types[name];
         let component_index = self.component_index_map[&component_type];
 
         let component_vec = self.component_instances[component_index].as_any_mut();
 
         if let Some(component_vec) = component_vec
-            .downcast_mut::<Vec<Option<T>>>()
+            .downcast_mut::<RefCell<Vec<Option<T>>>>()
         {
-            component_vec[entity] = None;
+            component_vec.get_mut()[entity] = None;
         }
     }
 }
@@ -186,7 +209,7 @@ impl EntityManager {
     pub fn new() -> Self {
         Self { 
             available_entities: VecDeque::from_iter(core::array::from_fn::<_, MAX_ENTITIES, _>(|i| i)), 
-            signatures: vec![bitarr!(Entity, Lsb0; 0; MAX_ENTITIES); MAX_ENTITIES], 
+            signatures: vec![bitarr!(Entity, Lsb0; 0; MAX_COMPONENTS); MAX_ENTITIES], 
             living_entity_count: 0,
             entity_uuid: HashMap::new(),
             uuid_entity: HashMap::new(),
@@ -238,7 +261,7 @@ impl EntityManager {
             panic!("Entity out of range");
         }
 
-        self.signatures[entity] = bitarr!(Entity, Lsb0; 0; MAX_ENTITIES);
+        self.signatures[entity] = bitarr!(Entity, Lsb0; 0; MAX_COMPONENTS);
         
         let uuid = &self.entity_uuid[&entity];
         self.uuid_entity.remove_entry(uuid);
@@ -276,14 +299,12 @@ impl EntityManager {
 
 /// Trait that all systems for Ecstasy should implement.
 pub trait System<ComponentTypes = ()> {
-    /// Create a new instance of the system
-    fn new() -> Self;
     /// Process that should run when the system first starts.
-    fn start(&mut self, _dt: f32, _world: *mut World, _entities: Vec<(Entity, ComponentTypes)>) -> () {}
+    fn start(&mut self, _dt: f32, _world: *mut World, _entities: &BTreeSet<Entity>) -> () {}
     /// Process to run every frame.
-    fn update(&mut self, _dt: f32, _world: *mut World, _entities: Vec<(Entity, ComponentTypes)>) -> () {}
+    fn update(&mut self, _dt: f32, _world: *mut World, _entities: &BTreeSet<Entity>) -> () {}
     /// Process to run when the system is stopped.
-    fn stop(&mut self, _dt: f32, _world: *mut World, _entities: Vec<(Entity, ComponentTypes)>) -> () {}
+    fn stop(&mut self, _dt: f32, _world: *mut World, _entities: &BTreeSet<Entity>) -> () {}
     /// Helper function for `SystemManager` that should return a Vec of the names of the components
     /// this system works on in the order presented in the generic.
     ///
@@ -307,11 +328,86 @@ pub trait System<ComponentTypes = ()> {
 
 /// Structure for managing systems.
 struct SystemManager {
+    systems_instances: Vec<Box<dyn System>>,
+    signatures: HashMap<String, (SystemSignature, usize)>,
+    entity_index: HashMap<String, BTreeSet<Entity>>,
+    systems: usize,
 }
 
 impl SystemManager {
     pub fn new() -> Self {
-        Self {}
+        Self {
+            systems_instances: Vec::new(),
+            signatures: HashMap::new(),
+            entity_index: HashMap::new(),
+            systems: 0,
+        }
+    }
+
+    pub fn register<T: 'static + System>(&mut self, signature: SystemSignature, system: T) -> () {
+        let name = type_name::<T>().to_string();
+        self.signatures.insert(name, (signature, self.systems));
+
+        self.systems_instances.push(Box::new(system));
+        self.systems += 1;
+    }
+
+    pub fn start(&mut self, dt: f32, world: *mut World) -> () {
+        for system in &mut self.systems_instances.iter_mut() {
+            let name = type_name_of_val(system);
+            if let Some(entities) = self.entity_index.get(name)
+            {
+                system.start(dt, world, entities);
+            }
+        }
+    }
+
+    pub fn update(&mut self, dt: f32, world: *mut World) -> () {
+        for system in &mut self.systems_instances.iter_mut() {
+            let name = type_name_of_val(system);
+            if let Some(entities) = self.entity_index.get(name)
+            {
+                system.update(dt, world, entities);
+            }
+        }
+    }
+
+    pub fn stop(&mut self, dt: f32, world: *mut World) -> () {
+        for system in &mut self.systems_instances.iter_mut() {
+            let name = type_name_of_val(system);
+            if let Some(entities) = self.entity_index.get(name)
+            {
+                system.stop(dt, world, entities);
+            }
+        }
+    }
+
+    fn get_signature<T>(&self) -> SystemSignature {
+        let name = type_name::<T>().to_string();
+
+        let (sig, _) = self.signatures[&name];
+
+        sig
+    }
+
+    pub fn index(&mut self, entity: Entity, ent_sig: EntitySignature) -> () {
+        for (name, (sys_sig, _)) in &self.signatures {
+            if let Some(index) = self.entity_index.get_mut(name) {
+                if ent_sig & sys_sig == *sys_sig {
+                    index.insert(entity);
+                }
+            }
+        }
+    }
+
+    pub fn deindex(&mut self, entity: Entity, ent_sig: EntitySignature) -> () {
+        for (name, (sys_sig, _)) in &self.signatures {
+            if let Some(index) = self.entity_index.get_mut(name) {
+                if ent_sig & sys_sig == *sys_sig {
+                    index.remove(&entity);
+                }
+            }
+        }
     }
 }
 
@@ -341,6 +437,9 @@ impl World {
 
     /// Destroy an entity.
     pub fn destroy_entity(&mut self, entity: Entity) -> () {
+        let ent_sig = self.entity_manager.get_signature(entity);
+        self.system_manager.deindex(entity, ent_sig);
+
         self.entity_manager.destroy_entity(entity)
     }
 
@@ -350,14 +449,15 @@ impl World {
     }
 
     /// Register a new component type.
-    pub fn register_component<T: 'static>(&mut self) {
+    pub fn register_component<T: 'static>(&mut self) -> () {
         self.component_manager.register_component::<T>();
     }
 
     /// Get the numerical representation of a component.
-    pub(crate) fn get_component_type<T: 'static>(&self) -> ComponentType {
+    pub(crate) fn get_component_type<T: 'static>(&self) -> ComponentSignature {
         self.component_manager.get_type::<T>()
     }
+
 
     /// Assign a given component to a given entity.
     ///
@@ -381,14 +481,22 @@ impl World {
 
         self.entity_manager.set_signature(entity, entity_sig);
         self.component_manager.set_component(entity, component);
+        self.system_manager.index(entity, entity_sig);
     }
 
     /// Returns whether the given entity has the given component.
-    pub(crate) fn has<Component: 'static>(&self, entity: Entity) -> bool {
+    pub fn has<Component: 'static>(&self, entity: Entity) -> bool {
         let entity_sig = self.get_signature(entity);
         let component_type = self.get_component_type::<Component>();
 
         entity_sig & component_type == component_type
+    }
+
+    pub fn get_component<T: 'static>(&mut self, entity: Entity) -> Option<&mut T> {
+        if !self.has::<T>(entity) {
+            return None;
+        }
+        self.component_manager.get_component::<T>(entity)
     }
 
     /// Remove a component from a given entity.
@@ -396,9 +504,39 @@ impl World {
         let mut entity_sig = self.get_signature(entity);
         let component_type = self.get_component_type::<Component>();
 
-        entity_sig = entity_sig ^ component_type;
-
-        self.entity_manager.set_signature(entity, entity_sig);
+        self.system_manager.deindex(entity, entity_sig);
         self.component_manager.remove_component::<Component>(entity);
+
+        entity_sig = entity_sig ^ component_type;
+        self.entity_manager.set_signature(entity, entity_sig);
+    }
+
+    pub fn register_system<T: 'static + System>(&mut self, system: T) -> () {
+        let mut sig: SystemSignature = bitarr!(usize, Lsb0; 0; MAX_COMPONENTS);
+
+        for component_name in system.get_component_types() {
+            let comp_sig = self.component_manager.get_component_type(component_name.to_string());
+
+            sig |= comp_sig;
+        }
+
+        self.system_manager.register(sig, system);
+    }
+
+    pub fn matches(&self, entity: Entity, system_sig: SystemSignature) -> bool {
+        let entity_sig: EntitySignature = self.entity_manager.get_signature(entity);
+
+        entity_sig & system_sig == system_sig
+    }
+
+    pub fn get_all_matches(&self, system_sig: SystemSignature) -> BTreeSet<Entity> {
+        let mut matched: BTreeSet<Entity> = BTreeSet::new();
+        for i in 0..MAX_COMPONENTS {
+            if self.matches(i, system_sig) {
+                matched.insert(i);
+            }
+            
+        }
+        matched
     }
 }
