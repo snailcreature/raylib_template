@@ -355,7 +355,7 @@ impl SystemManager {
     }
 
     /// Run the start function of each registered system.
-    pub fn start(&mut self, dt: f32, world: *mut World) -> () {
+    pub fn start(&mut self, dt: f32, world: &mut World) -> () {
         for system in &mut self.systems_instances.iter_mut() {
             let name = type_name_of_val(system);
             if let Some(entities) = self.entity_index.get(name)
@@ -366,7 +366,7 @@ impl SystemManager {
     }
 
     /// Run the update function of each registered system.
-    pub fn update(&mut self, dt: f32, world: *mut World) -> () {
+    pub fn update(&mut self, dt: f32, world: &mut World) -> () {
         for system in &mut self.systems_instances.iter_mut() {
             let name = type_name_of_val(system);
             if let Some(entities) = self.entity_index.get(name)
@@ -377,7 +377,7 @@ impl SystemManager {
     }
 
     /// Run the stop function of each registered system.
-    pub fn stop(&mut self, dt: f32, world: *mut World) -> () {
+    pub fn stop(&mut self, dt: f32, world: &mut World) -> () {
         for system in &mut self.systems_instances.iter_mut() {
             let name = type_name_of_val(system);
             if let Some(entities) = self.entity_index.get(name)
@@ -525,6 +525,21 @@ impl World {
         }
 
         self.system_manager.register(sig, system);
+    }
+
+    /// Start systems.
+    pub fn systems_start(&mut self, world: &mut World, dt: Option<f32>) -> () {
+        self.system_manager.start(dt.unwrap_or(0.0), world);
+    }
+
+    /// Update systems once a frame.
+    pub fn systems_update(&mut self, dt: f32, world: &mut World) -> () {
+        self.system_manager.update(dt, world);
+    }
+
+    /// Stop all systems.
+    pub fn systems_stop(&mut self, dt: f32, world: &mut World) -> () {
+        self.system_manager.stop(dt, world);
     }
 
     /// Check if a given entity will be affected by a system based on the system's signature.
