@@ -1,6 +1,6 @@
 //! A basic entity component system
-use std::{any::{TypeId, type_name, type_name_of_val}, cell::RefCell, collections::{BTreeSet, HashMap, VecDeque}, fmt::Debug};
-use bitvec::{BitArr, array::BitArray, bitarr, order::Lsb0};
+use std::{any::{type_name, type_name_of_val}, cell::RefCell, collections::{BTreeSet, HashMap, VecDeque}, fmt::Debug};
+use bitvec::{BitArr, bitarr, order::Lsb0};
 use uuid7::uuid7;
 
 pub mod macros;
@@ -144,6 +144,7 @@ impl ComponentManager {
         }
     }
 
+    /// Get a reference to a given entity's component instance.
     pub fn get_component<T: 'static>(&mut self, entity: Entity) -> Option<&mut T> {
         let name = type_name::<T>();
 
@@ -344,6 +345,7 @@ impl SystemManager {
         }
     }
 
+    /// Register an instance of a system of the given type.
     pub fn register<T: 'static + System>(&mut self, signature: SystemSignature, system: T) -> () {
         let name = type_name::<T>().to_string();
         self.signatures.insert(name, (signature, self.systems));
@@ -352,6 +354,7 @@ impl SystemManager {
         self.systems += 1;
     }
 
+    /// Run the start function of each registered system.
     pub fn start(&mut self, dt: f32, world: *mut World) -> () {
         for system in &mut self.systems_instances.iter_mut() {
             let name = type_name_of_val(system);
@@ -362,6 +365,7 @@ impl SystemManager {
         }
     }
 
+    /// Run the update function of each registered system.
     pub fn update(&mut self, dt: f32, world: *mut World) -> () {
         for system in &mut self.systems_instances.iter_mut() {
             let name = type_name_of_val(system);
@@ -372,6 +376,7 @@ impl SystemManager {
         }
     }
 
+    /// Run the stop function of each registered system.
     pub fn stop(&mut self, dt: f32, world: *mut World) -> () {
         for system in &mut self.systems_instances.iter_mut() {
             let name = type_name_of_val(system);
@@ -382,14 +387,7 @@ impl SystemManager {
         }
     }
 
-    fn get_signature<T>(&self) -> SystemSignature {
-        let name = type_name::<T>().to_string();
-
-        let (sig, _) = self.signatures[&name];
-
-        sig
-    }
-
+    /// Index an entity by its signature compared to the signature of each registered function.
     pub fn index(&mut self, entity: Entity, ent_sig: EntitySignature) -> () {
         for (name, (sys_sig, _)) in &self.signatures {
             if let Some(index) = self.entity_index.get_mut(name) {
@@ -400,10 +398,11 @@ impl SystemManager {
         }
     }
 
+    /// Remove all relevant indexed references to an entity based on its signature.
     pub fn deindex(&mut self, entity: Entity, ent_sig: EntitySignature) -> () {
         for (name, (sys_sig, _)) in &self.signatures {
             if let Some(index) = self.entity_index.get_mut(name) {
-                if ent_sig & sys_sig == *sys_sig {
+                if ent_sig & sys_sig != *sys_sig {
                     index.remove(&entity);
                 }
             }
@@ -492,6 +491,7 @@ impl World {
         entity_sig & component_type == component_type
     }
 
+    /// Get a given component value for a given entity.
     pub fn get_component<T: 'static>(&mut self, entity: Entity) -> Option<&mut T> {
         if !self.has::<T>(entity) {
             return None;
@@ -504,13 +504,17 @@ impl World {
         let mut entity_sig = self.get_signature(entity);
         let component_type = self.get_component_type::<Component>();
 
-        self.system_manager.deindex(entity, entity_sig);
         self.component_manager.remove_component::<Component>(entity);
 
         entity_sig = entity_sig ^ component_type;
+        self.system_manager.deindex(entity, entity_sig);
+
         self.entity_manager.set_signature(entity, entity_sig);
     }
 
+    /// Register an instance of a given system type.
+    ///
+    /// Each system type can only have one (1) registered instance.
     pub fn register_system<T: 'static + System>(&mut self, system: T) -> () {
         let mut sig: SystemSignature = bitarr!(usize, Lsb0; 0; MAX_COMPONENTS);
 
@@ -523,12 +527,14 @@ impl World {
         self.system_manager.register(sig, system);
     }
 
+    /// Check if a given entity will be affected by a system based on the system's signature.
     pub fn matches(&self, entity: Entity, system_sig: SystemSignature) -> bool {
         let entity_sig: EntitySignature = self.entity_manager.get_signature(entity);
 
         entity_sig & system_sig == system_sig
     }
 
+    /// Get all entities that match against a system's signature.
     pub fn get_all_matches(&self, system_sig: SystemSignature) -> BTreeSet<Entity> {
         let mut matched: BTreeSet<Entity> = BTreeSet::new();
         for i in 0..MAX_COMPONENTS {
