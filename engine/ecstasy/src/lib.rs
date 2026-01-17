@@ -69,15 +69,29 @@ mod tests {
     fn type_names_test() {
         struct Health;
         struct Armour;
+        struct Damage;
 
-        let test = type_names!(Health, Armour);
+        let test0: Vec<&'static str> = type_names!();
+        let test1: Vec<&'static str> = type_names!(Health);
+        let test2: Vec<&'static str> = type_names!(Health, Armour);
+        let test3: Vec<&'static str> = type_names!(Health, Armour, Damage);
 
+        assert_eq!(Vec::<&'static str>::new(), test0);
+        assert_eq!(vec!["ecstasy::tests::type_names_test::Health"], test1);
         assert_eq!(
             vec![
                 "ecstasy::tests::type_names_test::Health",
                 "ecstasy::tests::type_names_test::Armour"
             ],
-            test
+            test2
+        );
+        assert_eq!(
+            vec![
+                "ecstasy::tests::type_names_test::Health",
+                "ecstasy::tests::type_names_test::Armour",
+                "ecstasy::tests::type_names_test::Damage"
+            ],
+            test3
         );
     }
 }
