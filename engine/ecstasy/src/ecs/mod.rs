@@ -1,6 +1,11 @@
 //! A basic entity component system
-use std::{any::{type_name, type_name_of_val}, cell::RefCell, collections::{BTreeSet, HashMap, VecDeque}, fmt::Debug};
 use bitvec::{BitArr, bitarr, order::Lsb0};
+use std::{
+    any::{type_name, type_name_of_val},
+    cell::RefCell,
+    collections::{BTreeSet, HashMap, VecDeque},
+    fmt::Debug,
+};
 use uuid7::uuid7;
 
 pub mod macros;
@@ -49,7 +54,7 @@ impl<T: 'static> TComponentVec for RefCell<Vec<Option<T>>> {
 
 // vec![bitarr!(Entity, Lsb0; 0; MAX_ENTITIES); MAX_ENTITIES]
 /// Object for storing and managing components.
-pub struct ComponentManager { 
+pub struct ComponentManager {
     /// A hash map of component type names to their numerical type.
     component_types: HashMap<String, ComponentSignature>,
     /// Maps the numerical type of a component to the index of the component vector.
@@ -63,7 +68,7 @@ pub struct ComponentManager {
 
 impl ComponentManager {
     pub fn new() -> Self {
-        Self { 
+        Self {
             component_types: HashMap::new(),
             component_index_map: HashMap::new(),
             component_instances: Vec::new(),
@@ -92,13 +97,16 @@ impl ComponentManager {
         }
 
         let mut component_type = bitarr!(usize, Lsb0; 0; MAX_COMPONENTS);
-        
+
         component_type.set((MAX_COMPONENTS - 1) - self.components, true);
 
-        self.component_types.insert(type_name.to_string(), component_type);
-        self.component_index_map.insert(component_type, self.components);
+        self.component_types
+            .insert(type_name.to_string(), component_type);
+        self.component_index_map
+            .insert(component_type, self.components);
 
-        let new_vec: RefCell<Vec<Option<T>>> = Vec::from_iter(std::array::from_fn::<Option<T>, MAX_ENTITIES, _>(|_| None)).into();
+        let new_vec: RefCell<Vec<Option<T>>> =
+            Vec::from_iter(std::array::from_fn::<Option<T>, MAX_ENTITIES, _>(|_| None)).into();
         self.component_instances.push(Box::new(new_vec));
 
         self.components += 1;
@@ -137,9 +145,7 @@ impl ComponentManager {
 
         let component_vec = self.component_instances[component_index].as_any_mut();
 
-        if let Some(component_vec) = component_vec
-            .downcast_mut::<RefCell<Vec<Option<T>>>>()
-        {
+        if let Some(component_vec) = component_vec.downcast_mut::<RefCell<Vec<Option<T>>>>() {
             component_vec.get_mut()[entity] = Some(component);
         }
     }
@@ -157,12 +163,9 @@ impl ComponentManager {
 
         let component_vec = self.component_instances[component_index].as_any_mut();
 
-        if let Some(component_vec) = component_vec
-            .downcast_mut::<RefCell<Vec<Option<T>>>>()
-        {
-            if let Some(component) = component_vec.get_mut().get_mut(entity)
-            {
-                return Some(component.as_mut().unwrap())
+        if let Some(component_vec) = component_vec.downcast_mut::<RefCell<Vec<Option<T>>>>() {
+            if let Some(component) = component_vec.get_mut().get_mut(entity) {
+                return Some(component.as_mut().unwrap());
             }
         }
         None
@@ -181,9 +184,7 @@ impl ComponentManager {
 
         let component_vec = self.component_instances[component_index].as_any_mut();
 
-        if let Some(component_vec) = component_vec
-            .downcast_mut::<RefCell<Vec<Option<T>>>>()
-        {
+        if let Some(component_vec) = component_vec.downcast_mut::<RefCell<Vec<Option<T>>>>() {
             component_vec.get_mut()[entity] = None;
         }
     }
@@ -208,9 +209,11 @@ pub struct EntityManager {
 
 impl EntityManager {
     pub fn new() -> Self {
-        Self { 
-            available_entities: VecDeque::from_iter(core::array::from_fn::<_, MAX_ENTITIES, _>(|i| i)), 
-            signatures: vec![bitarr!(Entity, Lsb0; 0; MAX_COMPONENTS); MAX_ENTITIES], 
+        Self {
+            available_entities: VecDeque::from_iter(core::array::from_fn::<_, MAX_ENTITIES, _>(
+                |i| i,
+            )),
+            signatures: vec![bitarr!(Entity, Lsb0; 0; MAX_COMPONENTS); MAX_ENTITIES],
             living_entity_count: 0,
             entity_uuid: HashMap::new(),
             uuid_entity: HashMap::new(),
@@ -225,7 +228,7 @@ impl EntityManager {
 
         let id: Entity = *self.available_entities.front().unwrap();
         self.available_entities.pop_front();
-        
+
         let uuid = uuid7().to_string();
         self.entity_uuid.insert(id, uuid.clone());
         self.uuid_entity.insert(uuid.clone(), id);
@@ -263,7 +266,7 @@ impl EntityManager {
         }
 
         self.signatures[entity] = bitarr!(Entity, Lsb0; 0; MAX_COMPONENTS);
-        
+
         let uuid = &self.entity_uuid[&entity];
         self.uuid_entity.remove_entry(uuid);
         self.entity_uuid.remove_entry(&entity);
@@ -360,8 +363,7 @@ impl SystemManager {
     pub fn start(&mut self, dt: f32, world: &mut World) -> () {
         for system in &mut self.systems_instances.iter_mut() {
             let name = type_name_of_val(system);
-            if let Some(entities) = self.entity_index.get(name)
-            {
+            if let Some(entities) = self.entity_index.get(name) {
                 system.start(dt, world, entities);
             }
         }
@@ -371,8 +373,7 @@ impl SystemManager {
     pub fn update(&mut self, dt: f32, world: &mut World) -> () {
         for system in &mut self.systems_instances.iter_mut() {
             let name = type_name_of_val(system);
-            if let Some(entities) = self.entity_index.get(name)
-            {
+            if let Some(entities) = self.entity_index.get(name) {
                 system.update(dt, world, entities);
             }
         }
@@ -382,8 +383,7 @@ impl SystemManager {
     pub fn stop(&mut self, dt: f32, world: &mut World) -> () {
         for system in &mut self.systems_instances.iter_mut() {
             let name = type_name_of_val(system);
-            if let Some(entities) = self.entity_index.get(name)
-            {
+            if let Some(entities) = self.entity_index.get(name) {
                 system.stop(dt, world, entities);
             }
         }
@@ -459,7 +459,6 @@ impl World {
         self.component_manager.get_type::<T>()
     }
 
-
     /// Assign a given component to a given entity.
     ///
     /// For example:
@@ -521,7 +520,9 @@ impl World {
         let mut sig: SystemSignature = bitarr!(usize, Lsb0; 0; MAX_COMPONENTS);
 
         for component_name in system.get_component_types() {
-            let comp_sig = self.component_manager.get_component_type(component_name.to_string());
+            let comp_sig = self
+                .component_manager
+                .get_component_type(component_name.to_string());
 
             sig |= comp_sig;
         }
@@ -558,7 +559,6 @@ impl World {
             if self.matches(i, system_sig) {
                 matched.insert(i);
             }
-            
         }
         matched
     }

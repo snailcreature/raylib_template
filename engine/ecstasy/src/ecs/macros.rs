@@ -7,10 +7,10 @@ pub mod helpers {
         };
         ($a:ty, $($b:ty),+) => ([std::any::type_name::<$a>(), $crate::_transcribe!($($b),+)]);
         () => {
-            
+
         };
     }
-    
+
     #[macro_export]
     macro_rules! type_names {
         ($($a:ty),*) => {
@@ -18,4 +18,3 @@ pub mod helpers {
         };
     }
 }
-

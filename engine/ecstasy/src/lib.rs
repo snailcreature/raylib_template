@@ -8,9 +8,12 @@ pub mod prelude {
 mod tests {
     use bitvec::{bitarr, order::Lsb0};
 
-    use crate::{ecs::{MAX_COMPONENTS, System}, type_names};
+    use crate::{
+        ecs::{MAX_COMPONENTS, System},
+        type_names,
+    };
 
-    use super::{prelude::World};
+    use super::prelude::World;
 
     #[test]
     fn entity_test() {
@@ -49,11 +52,17 @@ mod tests {
             }
         }
 
-        let test = Test { };
+        let test = Test {};
 
         let comp_types = test.get_component_types();
-        
-        assert_eq!(comp_types, vec!["ecstasy::tests::system_macro_test::Health", "ecstasy::tests::system_macro_test::Armour"])
+
+        assert_eq!(
+            comp_types,
+            vec![
+                "ecstasy::tests::system_macro_test::Health",
+                "ecstasy::tests::system_macro_test::Armour"
+            ]
+        )
     }
 
     #[test]
@@ -63,6 +72,12 @@ mod tests {
 
         let test = type_names!(Health, Armour);
 
-        assert_eq!(vec!["ecstasy::tests::type_names_test::Health", "ecstasy::tests::type_names_test::Armour"], test);
+        assert_eq!(
+            vec![
+                "ecstasy::tests::type_names_test::Health",
+                "ecstasy::tests::type_names_test::Armour"
+            ],
+            test
+        );
     }
 }
