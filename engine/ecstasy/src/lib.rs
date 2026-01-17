@@ -8,7 +8,7 @@ pub mod prelude {
 mod tests {
     use bitvec::{bitarr, order::Lsb0};
 
-    use crate::ecs::{MAX_COMPONENTS, System};
+    use crate::{ecs::{MAX_COMPONENTS, System}, type_names};
 
     use super::{prelude::World};
 
@@ -45,7 +45,7 @@ mod tests {
 
         impl System<(Health, Armour)> for Test {
             fn get_component_types(&self) -> Vec<&'static str> {
-                vec!["Health", "Armour"]
+                type_names!(Health, Armour)
             }
         }
 
@@ -53,6 +53,16 @@ mod tests {
 
         let comp_types = test.get_component_types();
         
-        assert_eq!(comp_types, vec!["Health", "Armour"])
+        assert_eq!(comp_types, vec!["ecstasy::tests::system_macro_test::Health", "ecstasy::tests::system_macro_test::Armour"])
+    }
+
+    #[test]
+    fn type_names_test() {
+        struct Health;
+        struct Armour;
+
+        let test = type_names!(Health, Armour);
+
+        assert_eq!(vec!["ecstasy::tests::type_names_test::Health", "ecstasy::tests::type_names_test::Armour"], test);
     }
 }

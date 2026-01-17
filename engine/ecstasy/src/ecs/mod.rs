@@ -324,6 +324,8 @@ pub trait System<ComponentTypes = ()> {
     /// }
     ///
     /// ```
+    ///
+    /// Use the `type_names!` macro for accurate component type names.
     fn get_component_types(&self) -> Vec<&'static str>;
 }
 
