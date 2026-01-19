@@ -9,7 +9,7 @@ mod tests {
     use bitvec::{bitarr, order::Lsb0};
 
     use crate::{
-        ecs::{MAX_COMPONENTS, System},
+        ecs::{MAX_COMPONENTS, System, WorldManager},
         type_names,
     };
 
@@ -46,7 +46,7 @@ mod tests {
 
         struct Test;
 
-        impl System<(Health, Armour)> for Test {
+        impl System for Test {
             fn get_component_types(&self) -> Vec<&'static str> {
                 type_names!(Health, Armour)
             }
@@ -93,5 +93,89 @@ mod tests {
             ],
             test3
         );
+    }
+
+    #[test]
+    fn full_test() {
+        struct Health(f32);
+
+        struct HealthSystem;
+
+        impl System for HealthSystem {
+            fn get_component_types(&self) -> Vec<&'static str> {
+                type_names!(Health)
+            }
+
+            fn start(
+                &mut self,
+                _dt: f32,
+                _world: &mut World,
+                _entities: &std::collections::BTreeSet<crate::prelude::Entity>,
+            ) -> () {
+                let mut components = _world.borrow_component_vec::<Health>().unwrap();
+                println!("{}", _entities.len());
+                for entity in _entities {
+                    if let Some(health) = components.get_mut(*entity) {
+                        *health = Some(Health(health.as_mut().unwrap().0 * 2.0));
+                        println!("{}", health.as_ref().unwrap().0);
+                    }
+                }
+            }
+
+            fn update(
+                &mut self,
+                _dt: f32,
+                _world: &mut World,
+                _entities: &std::collections::BTreeSet<crate::prelude::Entity>,
+            ) -> () {
+                let components = &mut _world.borrow_component_vec::<Health>().unwrap();
+                for entity in _entities {
+                    if let Some(health) = &mut components[*entity] {
+                        health.0 += 2.0;
+                    }
+                }
+            }
+
+            fn stop(
+                &mut self,
+                _dt: f32,
+                _world: &mut World,
+                _entities: &std::collections::BTreeSet<crate::prelude::Entity>,
+            ) -> () {
+                let mut components = _world.borrow_component_vec::<Health>().unwrap();
+                for entity in _entities {
+                    if let Some(health) = components[*entity].as_mut() {
+                        *health = Health(health.0 / 2.0);
+                    }
+                }
+            }
+        }
+
+        let mut world: WorldManager = WorldManager::new();
+
+        world.register_component::<Health>();
+        world.register_system(HealthSystem {});
+
+        let (e0, _) = world.create_entity();
+        let (e1, _) = world.create_entity();
+
+        world.assign(e0, Health(1.0));
+        world.assign(e1, Health(3.0));
+
+        println!("{}", world.get_component::<Health>(e0).unwrap().0);
+
+        world.systems_start(None);
+        println!("{}", world.get_component::<Health>(e0).unwrap().0);
+
+        world.systems_update(0.0);
+        println!("{}", world.get_component::<Health>(e0).unwrap().0);
+
+        world.systems_stop(0.0);
+        println!("{}", world.get_component::<Health>(e0).unwrap().0);
+
+        let r0 = world.get_component::<Health>(e0).unwrap().0;
+        let r1 = world.get_component::<Health>(e1).unwrap().0;
+        assert_eq!(r0, 2.0, "e0: {}", r0);
+        assert_eq!(r1, 4.0, "e1: {}", r1);
     }
 }
