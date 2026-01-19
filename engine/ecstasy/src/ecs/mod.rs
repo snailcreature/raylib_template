@@ -64,7 +64,7 @@ pub struct ComponentManager {
     /// Maps the numerical type of a component to the index of the component vector.
     component_index_map: HashMap<ComponentSignature, usize>,
     /// A vector of vectors containing each instance of a component.
-    pub(crate) component_instances: Vec<Box<dyn TComponentVec>>,
+    component_instances: Vec<Box<dyn TComponentVec>>,
     /// The number of existing component types. i.e. the size of component_instances, *not* the sum
     /// of all component instances stored.
     components: usize,
@@ -125,6 +125,7 @@ impl ComponentManager {
         self.component_types[&name]
     }
 
+    /// Get the index of a ComponentVec.
     pub fn get_component_index(&self, component_type: &ComponentSignature) -> usize {
         self.component_index_map[component_type]
     }
@@ -156,24 +157,6 @@ impl ComponentManager {
         if let Some(component_vec) = component_vec.downcast_mut::<ComponentVecRef<T>>() {
             component_vec.get_mut()[entity] = Some(component);
         }
-    }
-
-    pub fn borrow_component_vec<T: 'static>(&self) -> Option<ComponentVecMut<'_, T>> {
-        let name = type_name::<T>();
-
-        if !self.component_types.contains_key(name) {
-            panic!("Component does not exist");
-        }
-
-        let component_type = self.component_types[name];
-        let component_index = self.component_index_map[&component_type];
-
-        let component_vec = &self.component_instances[component_index];
-
-        if let Some(component_vec) = component_vec.as_any().downcast_ref::<ComponentVecRef<T>>() {
-            return Some(component_vec.borrow_mut());
-        }
-        None
     }
 
     /// Get a reference to a given entity's component instance.
@@ -360,9 +343,13 @@ pub trait System {
 
 /// Structure for managing systems.
 struct SystemManager {
+    /// All the systems that are instantiated.
     systems_instances: Vec<Box<dyn System>>,
+    /// A map of type names for systems to their signature and instance index.
     signatures: HashMap<String, (SystemSignature, usize)>,
+    /// Index of which entities should be affected by each system.
     entity_index: HashMap<String, BTreeSet<Entity>>,
+    /// The number of registered systems.
     systems: usize,
 }
 
@@ -438,6 +425,7 @@ impl SystemManager {
         }
     }
 
+    /// Ensure the Entity index is up-to-date, adding missing entities and removing dead entities.
     pub fn clean(&mut self, entity: Entity, ent_sig: EntitySignature) {
         for (name, (sys_sig, _)) in &self.signatures {
             if let Some(index) = self.entity_index.get_mut(name) {
@@ -470,6 +458,7 @@ impl World {
         }
     }
 
+    /*--- ENTITIES ---*/
     /// Create a new entity, returning its numerical identifier and uuid.
     pub fn create_entity(&mut self) -> (Entity, String) {
         let (ent, id) = self.entity_manager.create_entity();
@@ -490,6 +479,7 @@ impl World {
         self.entity_manager.get_signature(entity)
     }
 
+    /*--- COMPONENTS ---*/
     /// Register a new component type.
     pub fn register_component<T: 'static>(&mut self) -> () {
         self.component_manager.register_component::<T>();
@@ -500,6 +490,7 @@ impl World {
         self.component_manager.get_type::<T>()
     }
 
+    /// Given a component type name, get the component's signature.
     pub(crate) fn get_component_type_from_name(
         &self,
         component_name: String,
@@ -548,6 +539,7 @@ impl World {
         self.component_manager.get_component::<T>(entity)
     }
 
+    /// Borrow a ComponentVec as mut.
     pub fn borrow_component_vec<T: 'static>(&self) -> Option<ComponentVecMut<'_, T>> {
         let component_type = self.get_component_type::<T>();
         let component_index = self.component_manager.get_component_index(&component_type);
@@ -574,6 +566,8 @@ impl World {
     }
 }
 
+/// Manages a world of components and entities as well as the systems that should act on that
+/// world.
 pub struct WorldManager {
     world: World,
     system_manager: SystemManager,
@@ -606,6 +600,7 @@ impl WorldManager {
         self.world.get_signature(entity)
     }
 
+    /*--- COMPONENTS ---*/
     /// Register a new component type.
     pub fn register_component<T: 'static>(&mut self) -> () {
         self.world.register_component::<T>();
@@ -659,6 +654,7 @@ impl WorldManager {
         self.system_manager.deindex(entity, entity_sig);
     }
 
+    /*--- SYSTEMS ---*/
     /// Register an instance of a given system type.
     ///
     /// Each system type can only have one (1) registered instance.
@@ -676,6 +672,7 @@ impl WorldManager {
         self.system_manager.register(sig, system);
     }
 
+    /// Ensure each entity is known to the correct systems.
     fn clean(&mut self) {
         for entity in &self.world.dirty {
             let sig = self.get_signature(*entity);

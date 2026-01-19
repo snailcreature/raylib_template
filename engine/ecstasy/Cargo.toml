@@ -5,5 +5,4 @@ edition = "2024"
 
 [dependencies]
 bitvec = "1.0.1"
-const_format = "0.2.35"
 uuid7 = "1.4.0"

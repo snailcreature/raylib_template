@@ -115,9 +115,8 @@ mod tests {
                 let mut components = _world.borrow_component_vec::<Health>().unwrap();
                 println!("{}", _entities.len());
                 for entity in _entities {
-                    if let Some(health) = components.get_mut(*entity) {
-                        *health = Some(Health(health.as_mut().unwrap().0 * 2.0));
-                        println!("{}", health.as_ref().unwrap().0);
+                    if let Some(health) = &mut components[*entity] {
+                        health.0 *= 2.0;
                     }
                 }
             }
@@ -145,7 +144,7 @@ mod tests {
                 let mut components = _world.borrow_component_vec::<Health>().unwrap();
                 for entity in _entities {
                     if let Some(health) = components[*entity].as_mut() {
-                        *health = Health(health.0 / 2.0);
+                        health.0 /= 2.0;
                     }
                 }
             }
