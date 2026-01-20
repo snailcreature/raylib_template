@@ -1,7 +1,9 @@
-mod ecs;
+//! A basic Entity Component System setup.
+pub mod ecs;
 
 pub mod prelude {
-    pub use crate::ecs::*;
+    pub use crate::ecs::{System, WorldManager, Entity, macros::helpers};
+    pub use crate::type_names;
 }
 
 #[cfg(test)]
@@ -9,11 +11,10 @@ mod tests {
     use bitvec::{bitarr, order::Lsb0};
 
     use crate::{
-        ecs::{MAX_COMPONENTS, System, WorldManager},
-        type_names,
+        ecs::{MAX_COMPONENTS, System, WorldManager}, type_names,
     };
 
-    use super::prelude::World;
+    use super::ecs::World;
 
     #[test]
     fn entity_test() {

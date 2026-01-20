@@ -1,4 +1,4 @@
-//! A basic entity component system
+//! Functionality of the ECS.
 use bitvec::{BitArr, bitarr, order::Lsb0};
 use std::{
     any::type_name,
