@@ -1,3 +1,7 @@
+pub mod command;
+pub mod event;
+pub mod observe;
+
 pub fn add(left: u64, right: u64) -> u64 {
     left + right
 }
