@@ -13,10 +13,10 @@ pub mod macros;
 type ComponentMask = usize;
 
 /// Unique signature of a component represented as a bit array.
-pub type ComponentSignature = BitArr!(for size_of::<usize>() * 8, in usize);
+pub type ComponentSignature = BitArr!(for size_of::<ComponentMask>() * 8, in usize);
 
 /// The maximum number of components able to be registered.
-pub const MAX_COMPONENTS: usize = size_of::<usize>() * 8;
+pub const MAX_COMPONENTS: usize = size_of::<ComponentMask>() * 8;
 
 /// Numerical representation of an entity, used as an index for component vectors.
 pub type Entity = usize;

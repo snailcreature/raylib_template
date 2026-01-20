@@ -2,6 +2,7 @@
 name = "ecstasy"
 version = "0.1.0"
 edition = "2024"
+description = "ECStasy: An ECS"
 
 [dependencies]
 bitvec = "1.0.1"

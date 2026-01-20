@@ -1,0 +1,7 @@
+[package]
+name = "cacao"
+version = "0.1.0"
+edition = "2024"
+description = "Centrally Actualised Command And Observe"
+
+[dependencies]
