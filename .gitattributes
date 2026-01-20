@@ -1,0 +1,20 @@
+# Set the default behavior to automatically normalize line endings.
+* text=auto
+
+# Force Unix-style line endings for all text files.
+* text eol=lf
+
+# Treat *.tff files as binary files to ignore any styling rules enforced by git.
+*.ttf binary
+*.otf binary
+
+# LFS settings
+*.png filter=lfs diff=lfs merge=lfs -text
+*.PNG filter=lfs diff=lfs merge=lfs -text
+*.jpg filter=lfs diff=lfs merge=lfs -text
+*.JPG filter=lfs diff=lfs merge=lfs -text
+*.jpeg filter=lfs diff=lfs merge=lfs -text
+*.JPEG filter=lfs diff=lfs merge=lfs -text
+*.wav filter=lfs diff=lfs merge=lfs -text
+*.ogg filter=lfs diff=lfs merge=lfs -text
+*.mp3 filter=lfs diff=lfs merge=lfs -text
