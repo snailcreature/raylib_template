@@ -1,31 +1,36 @@
 //! An implementation of the Observer pattern.
 
-pub struct Subject<T> {
-    state: T,
-    observers: Vec<Box<dyn Observer<T>>>,
+/// An object that has its state observed.
+pub struct Subject<StateType> {
+    state: StateType,
+    observers: Vec<Box<dyn Observer<StateType>>>,
 }
 
-impl<T> Subject<T> {
-    pub fn new(state: T) -> Self {
+impl<StateType> Subject<StateType> {
+    pub fn new(state: StateType) -> Self {
         Self {
             state,
             observers: Vec::new(),
         }
     }
 
-    pub fn state(&self) -> &T {
+    /// Get the current value of the state.
+    pub fn state(&self) -> &StateType {
         &self.state
     }
 
-    pub fn attach(&mut self, observer: Box<dyn Observer<T>>) -> () {
+    /// Attach an Observer to this Subject.
+    pub fn attach(&mut self, observer: Box<dyn Observer<StateType>>) -> () {
         self.observers.push(observer);
     }
 
-    pub fn update_state(&mut self, state: T) -> () {
+    /// Update the state and notify the Observers.
+    pub fn update_state(&mut self, state: StateType) -> () {
         self.state = state;
         self.notify();
     }
 
+    /// Notify Observers of new state.
     fn notify(&self) {
         for observer in &self.observers {
             observer.update(&self.state);
@@ -33,6 +38,8 @@ impl<T> Subject<T> {
     }
 }
 
-pub trait Observer<T> {
-    fn update(&self, state: &T);
+/// Action to perform when observed state is updated.
+pub trait Observer<StateType> {
+    /// Action run when observed Subject updates its state.
+    fn update(&self, state: &StateType);
 }
