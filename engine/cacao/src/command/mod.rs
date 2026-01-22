@@ -3,7 +3,7 @@
 /// A command to issue.
 pub trait Command<T = ()> {
     /// Action to perform.
-    fn execute(_target: T) -> ();
+    fn execute(&mut self, _target: T) -> ();
 }
 
 /// A command that can be undone.
@@ -51,6 +51,10 @@ impl CommandStack {
         self.head += 1;
 
         true
+    }
+
+    pub fn get(&self, index: usize) -> &Box<dyn CommandUndo + 'static> {
+        &self.commands[index]
     }
 
     /// Undo the last command that was executed or redone.
