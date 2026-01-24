@@ -4,8 +4,8 @@ pub mod observe;
 
 pub mod prelude {
     pub use crate::command::*;
-    pub use crate::observe::*;
     pub use crate::event::*;
+    pub use crate::observe::*;
 }
 
 #[cfg(test)]
@@ -18,7 +18,9 @@ mod tests {
 
     impl Test {
         pub fn new(value: &str) -> Self {
-            Self { value: value.to_string() }
+            Self {
+                value: value.to_string(),
+            }
         }
     }
 
@@ -35,7 +37,10 @@ mod tests {
 
     impl Test2 {
         pub fn new(value: &str) -> Self {
-            Self { value: value.to_string(), last_value: "".to_string() }
+            Self {
+                value: value.to_string(),
+                last_value: "".to_string(),
+            }
         }
     }
 
