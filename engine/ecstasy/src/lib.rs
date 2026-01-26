@@ -1,5 +1,6 @@
 //! A basic Entity Component System setup.
 pub mod ecs;
+pub mod ecs_thread;
 
 pub mod prelude {
     pub use crate::ecs::{System, WorldManager, Entity, macros::helpers};
