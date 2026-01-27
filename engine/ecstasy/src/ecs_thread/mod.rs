@@ -2,7 +2,7 @@ pub mod types;
 
 use std::{
     any::type_name,
-    collections::{HashMap, VecDeque},
+    collections::{BTreeSet, HashMap, VecDeque},
     sync::{Arc, Mutex},
 };
 
@@ -10,7 +10,7 @@ use bitvec::{bitarr, order::Lsb0};
 use types::*;
 use uuid7::uuid7;
 
-//--- COMPONENTS ---
+/*--- COMPONENTS ---*/
 /// Stores and maintains Components.
 pub struct ComponentManager {
     /// Map of Component type names to ComponentMasks and ComponentSignatures.
@@ -145,7 +145,7 @@ impl ComponentManager {
     }
 }
 
-//--- ENTITIES ---
+/*--- ENTITIES ---*/
 pub struct EntityManager {
     /// Queue of available Entity identifiers.
     entity_shelf: Arc<VecDeque<Entity>>,
@@ -268,5 +268,92 @@ impl EntityManager {
         let uuid = eu[entity].lock().unwrap();
 
         uuid.clone()
+    }
+}
+
+/*--- WORLD ---*/
+/// Coordinates Entities and Components between Systems.
+pub struct World {
+    /// EntityManager for the World.
+    entity_manager: Arc<EntityManager>,
+    /// ComponentManager for the World.
+    component_manager: Arc<ComponentManager>,
+    /// Entities that have been updated.
+    pub dirty: Arc<BTreeSet<Entity>>,
+}
+
+impl World {
+    pub fn new() -> Self {
+        Self {
+            entity_manager: Arc::new(EntityManager::new()),
+            component_manager: Arc::new(ComponentManager::new()),
+            dirty: Arc::new(BTreeSet::new()),
+        }
+    }
+
+    /*--- ENTITIES ---*/
+    /// Spawn a new blank Entity.
+    pub fn create_entity(&mut self) -> (Entity, String) {
+        let em = Arc::get_mut(&mut self.entity_manager).unwrap();
+
+        let (ent, id) = em.spawn();
+
+        let dirty = Arc::get_mut(&mut self.dirty).unwrap();
+        dirty.insert(ent);
+
+        (ent, id)
+    }
+
+    /// Destroy an Entity.
+    pub fn destroy_entity(&mut self, entity: Entity) -> () {
+        let em = Arc::get_mut(&mut self.entity_manager).unwrap();
+        em.destroy(entity);
+
+        let dirty = Arc::get_mut(&mut self.dirty).unwrap();
+        dirty.insert(entity);
+    }
+
+    /*--- COMPONENTS ---*/
+    /// Register a Component in the World.
+    pub fn register<Component: 'static>(&mut self) -> () {
+        let cm = Arc::get_mut(&mut self.component_manager).unwrap();
+        cm.register::<Component>();
+    }
+
+    /// Assign an instance of a Component to an Entity.
+    pub fn assign<Component: 'static>(&mut self, entity: Entity, component: Component) -> () {
+        let em = Arc::get_mut(&mut self.entity_manager).unwrap();
+        let cm = Arc::get_mut(&mut self.component_manager).unwrap();
+
+        let component_sig = cm.get_signature::<Component>();
+
+        em.assign(entity, component_sig);
+        cm.set_component(entity, component);
+
+        let dirty = Arc::get_mut(&mut self.dirty).unwrap();
+        dirty.insert(entity);
+    }
+
+    /// Unassign a Component from an Entity.
+    pub fn unassign<Component: 'static>(&mut self, entity: Entity) -> () {
+        let em = Arc::get_mut(&mut self.entity_manager).unwrap();
+        let cm = Arc::get_mut(&mut self.component_manager).unwrap();
+
+        let component_sig = cm.get_signature::<Component>();
+
+        em.unassign(entity, component_sig);
+        cm.remove_component::<Component>(entity);
+
+        let dirty = Arc::get_mut(&mut self.dirty).unwrap();
+        dirty.insert(entity);
+    }
+
+    /// Get a thread-safe mutable reference to a Component of an Entity.
+    pub fn get_component<Component: 'static>(
+        &mut self,
+        entity: Entity,
+    ) -> Option<&Arc<Mutex<Option<Component>>>> {
+        let cm = Arc::get_mut(&mut self.component_manager).unwrap();
+        cm.get_component::<Component>(entity)
     }
 }

@@ -1,7 +1,7 @@
 use std::{any::Any, sync::{Arc, Mutex}};
 use bitvec::BitArr;
 
-//--- COMPONENTS ---
+/*--- COMPONENTS ---*/
 /// Numerical representation of a component.
 pub type ComponentMask = usize;
 
@@ -34,7 +34,7 @@ impl<Component: 'static> IComponentVec for ComponentVecRef<Component> {
     }
 }
 
-//--- ENTITIES ---
+/*--- ENTITIES ---*/
 /// Numerical identifier of an Entity.
 pub type Entity = usize;
 
@@ -48,7 +48,7 @@ pub const MAX_ENTITIES: Entity = 5000;
 /// Removal => `entity_sig = entity_sig ^ component_sig`
 pub type EntitySignature = BitArr!(for MAX_COMPONENTS, in ComponentMask);
 
-//--- SYSTEMS ---
+/*--- SYSTEMS ---*/
 /// Signature of a System, used to identify why Entities should be affected by a given System
 /// Affected => `entity_sig & system_sig == system_sig`
 pub type SystemSignature = BitArr!(for MAX_COMPONENTS, in ComponentMask);
