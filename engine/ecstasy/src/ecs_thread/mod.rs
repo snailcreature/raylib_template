@@ -2,18 +2,22 @@ pub mod types;
 
 use std::{
     any::type_name,
-    collections::HashMap,
+    collections::{HashMap, VecDeque},
     sync::{Arc, Mutex},
 };
 
 use bitvec::{bitarr, order::Lsb0};
 use types::*;
+use uuid7::uuid7;
 
 //--- COMPONENTS ---
 /// Stores and maintains Components.
 pub struct ComponentManager {
+    /// Map of Component type names to ComponentMasks and ComponentSignatures.
     component_types: HashMap<String, (ComponentMask, ComponentSignature)>,
+    /// Vec of ComponentVecs containing instances of Components.
     component_instances: Vec<Box<dyn IComponentVec>>,
+    /// The number of registered Components.
     components: ComponentMask,
 }
 
@@ -138,5 +142,131 @@ impl ComponentManager {
         let mut com = com_ref.lock().unwrap();
 
         *com = None;
+    }
+}
+
+//--- ENTITIES ---
+pub struct EntityManager {
+    /// Queue of available Entity identifiers.
+    entity_shelf: Arc<VecDeque<Entity>>,
+    /// Signatures of all Entities.
+    signatures: Arc<Vec<Arc<Mutex<EntitySignature>>>>,
+    /// Number of living Entities.
+    living: Arc<Mutex<Entity>>,
+    /// Vec of unique identifiers for Entities, allowing for persistent storage.
+    entity_uuid: Arc<Vec<Arc<Mutex<Option<String>>>>>,
+}
+
+impl EntityManager {
+    pub fn new() -> Self {
+        Self {
+            entity_shelf: Arc::new(VecDeque::from_iter(core::array::from_fn::<
+                _,
+                MAX_ENTITIES,
+                _,
+            >(|i| i))),
+            signatures: Arc::new(vec![
+                Arc::new(Mutex::new(
+                    bitarr!(Entity, Lsb0; 0; MAX_COMPONENTS)
+                ));
+                MAX_ENTITIES
+            ]),
+            living: Arc::new(Mutex::new(0)),
+            entity_uuid: Arc::new(vec![Arc::new(Mutex::new(None))]),
+        }
+    }
+
+    /// Create a new entity.
+    pub fn spawn(&mut self) -> (Entity, String) {
+        let mut living = self.living.lock().unwrap();
+        if *living >= MAX_ENTITIES {
+            panic!("Too many Entities!")
+        }
+
+        let es = Arc::get_mut(&mut self.entity_shelf).unwrap();
+        let id: Entity = es.pop_front().unwrap();
+
+        let uuid = uuid7().to_string();
+
+        let eu = Arc::get_mut(&mut self.entity_uuid).unwrap();
+
+        let mut pos = eu[id].lock().unwrap();
+
+        *pos = Some(uuid.clone());
+
+        *living += 1;
+
+        (id, uuid)
+    }
+
+    /// Create an entity using an existing unique identifier.
+    pub fn load(&mut self, uuid: String) -> Entity {
+        let mut living = self.living.lock().unwrap();
+        if *living >= MAX_ENTITIES {
+            panic!("Too many Entities!")
+        }
+
+        let es = Arc::get_mut(&mut self.entity_shelf).unwrap();
+        let id: Entity = es.pop_front().unwrap();
+
+        let eu = Arc::get_mut(&mut self.entity_uuid).unwrap();
+
+        let mut pos = eu[id].lock().unwrap();
+
+        *pos = Some(uuid.clone());
+
+        *living += 1;
+
+        id
+    }
+
+    /// Destroy an Entity.
+    pub fn destroy(&mut self, entity: Entity) -> () {
+        let mut living = self.living.lock().unwrap();
+        if *living >= MAX_ENTITIES {
+            panic!("Too many Entities!")
+        }
+
+        let sigs = Arc::get_mut(&mut self.signatures).unwrap();
+        let mut sig = sigs[entity].lock().unwrap();
+        *sig = bitarr!(Entity, Lsb0; 0; MAX_COMPONENTS);
+
+        let eu = Arc::get_mut(&mut self.entity_uuid).unwrap();
+        let mut pos = eu[entity].lock().unwrap();
+        *pos = None;
+
+        *living -= 1;
+    }
+
+    /// Manipulate an Entity's signature to reflect the assignment of a Component.
+    pub fn assign(&mut self, entity: Entity, component_sig: ComponentSignature) -> () {
+        let sigs = Arc::get_mut(&mut self.signatures).unwrap();
+        let mut sig = sigs[entity].lock().unwrap();
+
+        *sig |= component_sig;
+    }
+
+    /// Modify an Entity's signature to reflect the unassignment of a Component.
+    pub fn unassign(&mut self, entity: Entity, component_sig: ComponentSignature) -> () {
+        let sigs = Arc::get_mut(&mut self.signatures).unwrap();
+        let mut sig = sigs[entity].lock().unwrap();
+
+        *sig ^= component_sig;
+    }
+
+    /// Get the EntitySignature for an Entity.
+    pub fn get_signature(&self, entity: Entity) -> EntitySignature {
+        let sigs = Arc::clone(&self.signatures);
+        let sig = sigs[entity].lock().unwrap();
+
+        *sig
+    }
+
+    /// Get an Entity's uuid.
+    pub fn get_uuid(&self, entity: Entity) -> Option<String> {
+        let eu = Arc::clone(&self.entity_uuid);
+        let uuid = eu[entity].lock().unwrap();
+
+        uuid.clone()
     }
 }
