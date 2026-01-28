@@ -73,6 +73,16 @@ impl ComponentManager {
         sig
     }
 
+    pub fn get_signature_from_name(&self, name: &String) -> ComponentSignature {
+        if !self.component_types.contains_key(name) {
+            panic!("Component {} does not exist!", name)
+        }
+
+        let (_, sig) = self.component_types[name];
+
+        sig
+    }
+
     /// Get the instance of a given Component for an Entity, if that instance exists.
     pub fn get_component<Component: 'static + Send>(
         &mut self,
@@ -373,6 +383,11 @@ impl World {
         let cm = Arc::get_mut(&mut self.component_manager).unwrap();
         cm.get_component::<Component>(entity)
     }
+
+    pub fn get_component_signature_from_name(&self, name: String) -> ComponentSignature {
+        let cm = self.component_manager.clone();
+        cm.get_signature_from_name(&name)
+    }
 }
 
 /*--- SYSTEMS ---*/
@@ -457,5 +472,156 @@ impl SystemManager {
         for handle in handles {
             handle.join().unwrap();
         }
+    }
+
+    pub fn update(&mut self, dt: f32, world: &mut Arc<World>) -> () {
+        let mut handles = vec![];
+
+        let instances = Arc::get_mut(&mut self.instances).unwrap();
+        for (name, (_, index)) in &self.signatures {
+            if let Some(entities) = self.index.get(name) {
+                let mut w = Arc::clone(&world);
+
+                let e = Arc::clone(&entities);
+
+                let delta = dt;
+
+                let system = instances[*index].clone();
+
+                let handle = spawn(move || {
+                    let mut sys = system.lock().unwrap();
+                    sys.update(delta, Arc::get_mut(&mut w).unwrap(), &e);
+                });
+
+                handles.push(handle);
+            }
+        }
+
+        for handle in handles {
+            handle.join().unwrap();
+        }
+    }
+
+    pub fn stop(&mut self, dt: f32, world: &mut Arc<World>) -> () {
+        let mut handles = vec![];
+
+        let instances = Arc::get_mut(&mut self.instances).unwrap();
+        for (name, (_, index)) in &self.signatures {
+            if let Some(entities) = self.index.get(name) {
+                let mut w = Arc::clone(&world);
+
+                let e = Arc::clone(&entities);
+
+                let delta = dt;
+
+                let system = instances[*index].clone();
+
+                let handle = spawn(move || {
+                    let mut sys = system.lock().unwrap();
+                    sys.stop(delta, Arc::get_mut(&mut w).unwrap(), &e);
+                });
+
+                handles.push(handle);
+            }
+        }
+
+        for handle in handles {
+            handle.join().unwrap();
+        }
+    }
+}
+
+pub struct WorldManager {
+    world: Arc<World>,
+    system_manager: SystemManager,
+}
+
+impl WorldManager {
+    pub fn new() -> Self {
+        Self {
+            world: Arc::new(World::new()),
+            system_manager: SystemManager::new(),
+        }
+    }
+
+    /*--- ENTITIES ---*/
+    pub fn create_entity(&mut self) -> (Entity, String) {
+        let world = Arc::get_mut(&mut self.world).unwrap();
+        world.create_entity()
+    }
+
+    pub fn destroy_entity(&mut self, entity: Entity) -> () {
+        let world = Arc::get_mut(&mut self.world).unwrap();
+
+        world.destroy_entity(entity);
+    }
+
+    /*--- COMPONENTS ---*/
+    pub fn register_component<Component: 'static + Send>(&mut self) -> () {
+        let world = Arc::get_mut(&mut self.world).unwrap();
+
+        world.register::<Component>();
+    }
+
+    pub fn assign<Component: 'static + Send>(
+        &mut self,
+        entity: Entity,
+        component: Component,
+    ) -> () {
+        let world = Arc::get_mut(&mut self.world).unwrap();
+
+        world.assign(entity, component);
+        self.clean();
+    }
+
+    pub fn unassign<Component: 'static + Send>(&mut self, entity: Entity) -> () {
+        let world = Arc::get_mut(&mut self.world).unwrap();
+
+        world.unassign::<Component>(entity);
+        self.clean();
+    }
+
+    /*--- SYSTEMS ---*/
+    pub fn register_system<T: 'static + System + Send>(&mut self, system: T) -> () {
+        let mut sig: SystemSignature = bitarr!(usize, Lsb0; 0; MAX_COMPONENTS);
+
+        let world = Arc::get_mut(&mut self.world).unwrap();
+
+        for component_name in system.get_component_types() {
+            let comp_sig = world.get_component_signature_from_name(component_name.to_string());
+
+            sig |= comp_sig;
+        }
+
+        self.system_manager.register(system, sig);
+    }
+
+    pub fn systems_start(&mut self, dt: Option<f32>) -> () {
+        self.system_manager
+            .start(dt.unwrap_or(0.0), &mut self.world);
+        self.clean();
+    }
+
+    pub fn systems_update(&mut self, dt: f32) -> () {
+        self.system_manager.update(dt, &mut self.world);
+        self.clean();
+    }
+
+    pub fn systems_stop(&mut self, dt: f32) -> () {
+        self.system_manager.stop(dt, &mut self.world);
+        self.clean();
+    }
+
+    fn clean(&mut self) -> () {
+        let world = Arc::get_mut(&mut self.world).unwrap();
+
+        let dirty = Arc::get_mut(&mut world.dirty).unwrap();
+
+        for entity in dirty.clone() {
+            let sig = world.entity_manager.get_signature(entity);
+            self.system_manager.clean(entity, sig);
+        }
+
+        dirty.clear();
     }
 }
