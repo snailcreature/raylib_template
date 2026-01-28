@@ -4,6 +4,7 @@ use std::{
     any::type_name,
     collections::{BTreeSet, HashMap, VecDeque},
     sync::{Arc, Mutex},
+    thread::spawn,
 };
 
 use bitvec::{bitarr, order::Lsb0};
@@ -16,7 +17,7 @@ pub struct ComponentManager {
     /// Map of Component type names to ComponentMasks and ComponentSignatures.
     component_types: HashMap<String, (ComponentMask, ComponentSignature)>,
     /// Vec of ComponentVecs containing instances of Components.
-    component_instances: Vec<Box<dyn IComponentVec>>,
+    component_instances: Arc<Vec<Box<dyn IComponentVec>>>,
     /// The number of registered Components.
     components: ComponentMask,
 }
@@ -25,13 +26,13 @@ impl ComponentManager {
     pub fn new() -> Self {
         Self {
             component_types: HashMap::new(),
-            component_instances: Vec::new(),
+            component_instances: Arc::new(Vec::new()),
             components: 0,
         }
     }
 
     /// Register a given Component type.
-    pub fn register<Component: 'static>(&mut self) -> () {
+    pub fn register<Component: 'static + Send>(&mut self) -> () {
         if self.components >= MAX_COMPONENTS {
             panic!("No more available components!")
         }
@@ -51,13 +52,16 @@ impl ComponentManager {
 
         let new_vec: ComponentVecRef<Component> =
             vec![Arc::new(Mutex::new(None)); MAX_ENTITIES].into();
-        self.component_instances.push(Box::new(new_vec));
+
+        let instances = Arc::get_mut(&mut self.component_instances).unwrap();
+
+        instances.push(Box::new(new_vec));
 
         self.components += 1;
     }
 
     /// Get the ComponentSignature of the given Component.
-    pub fn get_signature<Component: 'static>(&self) -> ComponentSignature {
+    pub fn get_signature<Component: 'static + Send>(&self) -> ComponentSignature {
         let name = type_name::<Component>();
 
         if !self.component_types.contains_key(name) {
@@ -70,7 +74,7 @@ impl ComponentManager {
     }
 
     /// Get the instance of a given Component for an Entity, if that instance exists.
-    pub fn get_component<Component: 'static>(
+    pub fn get_component<Component: 'static + Send>(
         &mut self,
         entity: Entity,
     ) -> Option<&Arc<Mutex<Option<Component>>>> {
@@ -82,7 +86,9 @@ impl ComponentManager {
 
         let (ind, _) = self.component_types[name];
 
-        let component_vec = self.component_instances[ind].as_any_mut();
+        let instances = Arc::get_mut(&mut self.component_instances).unwrap();
+
+        let component_vec = instances[ind].as_any_mut();
 
         if let Some(com_vec) = component_vec.downcast_mut::<ComponentVecRef<Component>>() {
             if let Some(component) = com_vec.get(entity) {
@@ -93,7 +99,7 @@ impl ComponentManager {
     }
 
     /// Set the instance of a Component for a given Entity.
-    pub fn set_component<Component: 'static>(
+    pub fn set_component<Component: 'static + Send>(
         &mut self,
         entity: Entity,
         component: Component,
@@ -106,7 +112,9 @@ impl ComponentManager {
 
         let (ind, _) = self.component_types[name];
 
-        let component_vec = self.component_instances[ind]
+        let instances = Arc::get_mut(&mut self.component_instances).unwrap();
+
+        let component_vec = instances[ind]
             .as_any_mut()
             .downcast_mut::<ComponentVecRef<Component>>()
             .unwrap();
@@ -121,7 +129,7 @@ impl ComponentManager {
     }
 
     /// Remove the Component instance for the given Entity.
-    pub fn remove_component<Component: 'static>(&mut self, entity: Entity) -> () {
+    pub fn remove_component<Component: 'static + Send>(&mut self, entity: Entity) -> () {
         let name = type_name::<Component>();
 
         if !self.component_types.contains_key(name) {
@@ -130,7 +138,9 @@ impl ComponentManager {
 
         let (ind, _) = self.component_types[name];
 
-        let component_vec = self.component_instances[ind]
+        let instances = Arc::get_mut(&mut self.component_instances).unwrap();
+
+        let component_vec = instances[ind]
             .as_any_mut()
             .downcast_mut::<ComponentVecRef<Component>>()
             .unwrap();
@@ -282,6 +292,9 @@ pub struct World {
     pub dirty: Arc<BTreeSet<Entity>>,
 }
 
+unsafe impl Send for World {}
+unsafe impl Sync for World {}
+
 impl World {
     pub fn new() -> Self {
         Self {
@@ -315,13 +328,17 @@ impl World {
 
     /*--- COMPONENTS ---*/
     /// Register a Component in the World.
-    pub fn register<Component: 'static>(&mut self) -> () {
+    pub fn register<Component: 'static + Send>(&mut self) -> () {
         let cm = Arc::get_mut(&mut self.component_manager).unwrap();
         cm.register::<Component>();
     }
 
     /// Assign an instance of a Component to an Entity.
-    pub fn assign<Component: 'static>(&mut self, entity: Entity, component: Component) -> () {
+    pub fn assign<Component: 'static + Send>(
+        &mut self,
+        entity: Entity,
+        component: Component,
+    ) -> () {
         let em = Arc::get_mut(&mut self.entity_manager).unwrap();
         let cm = Arc::get_mut(&mut self.component_manager).unwrap();
 
@@ -335,7 +352,7 @@ impl World {
     }
 
     /// Unassign a Component from an Entity.
-    pub fn unassign<Component: 'static>(&mut self, entity: Entity) -> () {
+    pub fn unassign<Component: 'static + Send>(&mut self, entity: Entity) -> () {
         let em = Arc::get_mut(&mut self.entity_manager).unwrap();
         let cm = Arc::get_mut(&mut self.component_manager).unwrap();
 
@@ -349,11 +366,96 @@ impl World {
     }
 
     /// Get a thread-safe mutable reference to a Component of an Entity.
-    pub fn get_component<Component: 'static>(
+    pub fn get_component<Component: 'static + Send>(
         &mut self,
         entity: Entity,
     ) -> Option<&Arc<Mutex<Option<Component>>>> {
         let cm = Arc::get_mut(&mut self.component_manager).unwrap();
         cm.get_component::<Component>(entity)
+    }
+}
+
+/*--- SYSTEMS ---*/
+pub struct SystemManager {
+    /// All the Systems that have been registered.
+    instances: Arc<Vec<Arc<Mutex<Box<dyn System + Send>>>>>,
+    /// Signature and instance index of each System.
+    signatures: HashMap<String, (SystemSignature, usize)>,
+    /// Map of which Entities are affected by each System.
+    index: HashMap<String, Arc<BTreeSet<Entity>>>,
+    /// Number of registered Systems.
+    systems: usize,
+}
+
+impl SystemManager {
+    pub fn new() -> Self {
+        Self {
+            instances: Arc::new(Vec::new()),
+            signatures: HashMap::new(),
+            index: HashMap::new(),
+            systems: 0,
+        }
+    }
+
+    /// Register an instance of a new System type.
+    pub fn register<Sys: 'static + System + Send>(
+        &mut self,
+        system: Sys,
+        signature: SystemSignature,
+    ) -> () {
+        let name = type_name::<Sys>().to_string();
+
+        self.signatures
+            .insert(name.clone(), (signature, self.systems));
+
+        self.index.insert(name, Arc::new(BTreeSet::new()));
+
+        let instances = Arc::get_mut(&mut self.instances).unwrap();
+
+        instances.push(Arc::new(Mutex::new(Box::new(system))));
+
+        self.systems += 1;
+    }
+
+    /// Ensure the Entity index for each System is up to date.
+    pub fn clean(&mut self, entity: Entity, ent_sig: EntitySignature) -> () {
+        for (name, (sys_sig, _)) in &self.signatures {
+            if let Some(i) = self.index.get_mut(name) {
+                let index = Arc::get_mut(i).unwrap();
+                if ent_sig & sys_sig == *sys_sig {
+                    index.insert(entity);
+                } else {
+                    index.remove(&entity);
+                }
+            }
+        }
+    }
+
+    pub fn start(&mut self, dt: f32, world: &mut Arc<World>) -> () {
+        let mut handles = vec![];
+
+        let instances = Arc::get_mut(&mut self.instances).unwrap();
+        for (name, (_, index)) in &self.signatures {
+            if let Some(entities) = self.index.get(name) {
+                let mut w = Arc::clone(&world);
+
+                let e = Arc::clone(&entities);
+
+                let delta = dt;
+
+                let system = instances[*index].clone();
+
+                let handle = spawn(move || {
+                    let mut sys = system.lock().unwrap();
+                    sys.start(delta, Arc::get_mut(&mut w).unwrap(), &e);
+                });
+
+                handles.push(handle);
+            }
+        }
+
+        for handle in handles {
+            handle.join().unwrap();
+        }
     }
 }

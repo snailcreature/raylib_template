@@ -1,5 +1,7 @@
-use std::{any::Any, sync::{Arc, Mutex}};
+use std::{any::Any, collections::BTreeSet, sync::{Arc, Mutex}};
 use bitvec::BitArr;
+
+use crate::ecs_thread::World;
 
 /*--- COMPONENTS ---*/
 /// Numerical representation of a component.
@@ -12,7 +14,7 @@ pub const MAX_COMPONENTS: ComponentMask = size_of::<ComponentMask>() * 8;
 pub type ComponentSignature = BitArr!(for MAX_COMPONENTS, in ComponentMask);
 
 /// Trait for Vecs of Components.
-pub trait IComponentVec {
+pub trait IComponentVec: Send {
     /// Get a reference to the Vec.
     fn as_any(&self) -> &dyn Any;
     /// Get a mutable reference to the Vec.
@@ -24,7 +26,7 @@ pub type ComponentVec<Component> = Vec<Arc<Mutex<Option<Component>>>>;
 /// A thread-safe Vec of Components.
 pub type ComponentVecRef<Component> = Arc<ComponentVec<Component>>;
 
-impl<Component: 'static> IComponentVec for ComponentVecRef<Component> {
+impl<Component: 'static + Send> IComponentVec for ComponentVecRef<Component> {
     fn as_any(&self) -> &dyn Any {
         self as &dyn Any
     }
@@ -52,3 +54,19 @@ pub type EntitySignature = BitArr!(for MAX_COMPONENTS, in ComponentMask);
 /// Signature of a System, used to identify why Entities should be affected by a given System
 /// Affected => `entity_sig & system_sig == system_sig`
 pub type SystemSignature = BitArr!(for MAX_COMPONENTS, in ComponentMask);
+
+/// All Systems should implement this trait to allow a SystemManager to coordinate them.
+pub trait System {
+    /// Helper function for retrieving the names of Components required for this System to
+    /// function. SystemManagers use this to determine this System's signature for indexing
+    /// Entities to provide to it.
+    ///
+    /// Use the `type_names!` macro to produce a Vec of accurate Component type names.
+    fn get_component_types(&self) -> Vec<&'static str>;
+    /// Function to run when the SystemManager first starts.
+    fn start(&mut self, _dt: f32, _world: &mut World, _entities: &BTreeSet<Entity>) -> () {}
+    /// Function to run each game loop iteration.
+    fn update(&mut self, _dt: f32, _world: &mut World, _entities: &BTreeSet<Entity>) -> () {}
+    /// Function to run when the SystemManager stops.
+    fn stop(&mut self, _dt: f32, _world: &mut World, _entities: &BTreeSet<Entity>) -> () {}
+}
