@@ -1,5 +1,9 @@
-use std::{any::Any, collections::BTreeSet, sync::{Arc, Mutex}};
 use bitvec::BitArr;
+use std::{
+    any::Any,
+    collections::BTreeSet,
+    sync::{Arc, Mutex},
+};
 
 use crate::ecs_thread::World;
 

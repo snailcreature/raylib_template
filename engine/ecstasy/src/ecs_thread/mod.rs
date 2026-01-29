@@ -87,7 +87,7 @@ impl ComponentManager {
     pub fn get_component<Component: 'static + Send>(
         &mut self,
         entity: Entity,
-    ) -> Option<&Arc<Mutex<Option<Component>>>> {
+    ) -> Option<Arc<Mutex<Option<Component>>>> {
         let name = type_name::<Component>();
 
         if !self.component_types.contains_key(name) {
@@ -102,7 +102,7 @@ impl ComponentManager {
 
         if let Some(com_vec) = component_vec.downcast_mut::<ComponentVecRef<Component>>() {
             if let Some(component) = com_vec.get(entity) {
-                return Some(component);
+                return Some(component.clone());
             }
         }
         None
@@ -379,7 +379,7 @@ impl World {
     pub fn get_component<Component: 'static + Send>(
         &mut self,
         entity: Entity,
-    ) -> Option<&Arc<Mutex<Option<Component>>>> {
+    ) -> Option<Arc<Mutex<Option<Component>>>> {
         let cm = Arc::get_mut(&mut self.component_manager).unwrap();
         cm.get_component::<Component>(entity)
     }
