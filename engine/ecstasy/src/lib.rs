@@ -228,11 +228,11 @@ mod tests {
                     let _shield = _world.get_component::<Shield>(*entity).unwrap();
                     let _health = _world.get_component::<Health>(*entity).unwrap();
 
-                    let mut attack = _attack.lock().unwrap();
-                    let mut shield = _shield.lock().unwrap();
+                    let attack = _attack.lock().unwrap();
+                    let shield = _shield.lock().unwrap();
                     let mut health = _health.lock().unwrap();
 
-                    match (&mut *health, &mut *attack, &mut *shield) {
+                    match (&mut *health, &*attack, &*shield) {
                         (Some(health), Some(attack), Some(shield)) => {
                             health.0 -= attack.0 - shield.0;
                         }
@@ -253,5 +253,15 @@ mod tests {
         world.systems_start(None);
         world.systems_update(0.0);
         world.systems_stop(0.0);
+
+        let h0 = world.get_component::<Health>(0).unwrap();
+
+        let health0 = h0.lock().unwrap();
+
+        if let Some(health) = &*health0 {
+            assert_eq!(health.0, 6);
+        } else {
+            panic!("No Health!");
+        }
     }
 }

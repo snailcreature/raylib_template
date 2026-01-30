@@ -174,7 +174,7 @@ pub struct EntityManager {
     /// Number of living Entities.
     living: Arc<Mutex<Entity>>,
     /// Vec of unique identifiers for Entities, allowing for persistent storage.
-    entity_uuid: Arc<Vec<Arc<Mutex<Option<String>>>>>,
+    entity_uuid: Arc<Vec<Mutex<Option<String>>>>,
 }
 
 impl EntityManager {
@@ -192,7 +192,9 @@ impl EntityManager {
                 MAX_ENTITIES
             ]),
             living: Arc::new(Mutex::new(0)),
-            entity_uuid: Arc::new(vec![Arc::new(Mutex::new(None))]),
+            entity_uuid: Arc::new(Vec::from_iter(core::array::from_fn::<_, MAX_ENTITIES, _>(
+                |_| Mutex::new(None),
+            ))),
         }
     }
 
@@ -208,7 +210,8 @@ impl EntityManager {
 
         let uuid = uuid7().to_string();
 
-        let eu = Arc::get_mut(&mut self.entity_uuid).unwrap();
+        let mut _eu = self.entity_uuid.clone();
+        let eu = &*_eu;
 
         let mut pos = eu[id].lock().unwrap();
 
@@ -299,7 +302,7 @@ pub struct World {
     /// ComponentManager for the World.
     component_manager: Arc<ComponentManager>,
     /// Entities that have been updated.
-    pub dirty: Arc<BTreeSet<Entity>>,
+    pub dirty: Arc<Mutex<BTreeSet<Entity>>>,
 }
 
 unsafe impl Send for World {}
@@ -310,7 +313,7 @@ impl World {
         Self {
             entity_manager: Arc::new(EntityManager::new()),
             component_manager: Arc::new(ComponentManager::new()),
-            dirty: Arc::new(BTreeSet::new()),
+            dirty: Arc::new(Mutex::new(BTreeSet::new())),
         }
     }
 
@@ -321,7 +324,8 @@ impl World {
 
         let (ent, id) = em.spawn();
 
-        let dirty = Arc::get_mut(&mut self.dirty).unwrap();
+        let _dirty = self.dirty.clone();
+        let mut dirty = _dirty.lock().unwrap();
         dirty.insert(ent);
 
         (ent, id)
@@ -332,7 +336,8 @@ impl World {
         let em = Arc::get_mut(&mut self.entity_manager).unwrap();
         em.destroy(entity);
 
-        let dirty = Arc::get_mut(&mut self.dirty).unwrap();
+        let _dirty = self.dirty.clone();
+        let mut dirty = _dirty.lock().unwrap();
         dirty.insert(entity);
     }
 
@@ -357,7 +362,8 @@ impl World {
         em.assign(entity, component_sig);
         cm.set_component(entity, component);
 
-        let dirty = Arc::get_mut(&mut self.dirty).unwrap();
+        let _dirty = self.dirty.clone();
+        let mut dirty = _dirty.lock().unwrap();
         dirty.insert(entity);
     }
 
@@ -371,7 +377,8 @@ impl World {
         em.unassign(entity, component_sig);
         cm.remove_component::<Component>(entity);
 
-        let dirty = Arc::get_mut(&mut self.dirty).unwrap();
+        let _dirty = self.dirty.clone();
+        let mut dirty = _dirty.lock().unwrap();
         dirty.insert(entity);
     }
 
@@ -446,13 +453,13 @@ impl SystemManager {
         }
     }
 
-    pub fn start(&mut self, dt: f32, world: &mut Arc<World>) -> () {
+    pub fn start(&mut self, dt: f32, world: &Arc<Mutex<World>>) -> () {
         let mut handles = vec![];
 
         let instances = Arc::get_mut(&mut self.instances).unwrap();
         for (name, (_, index)) in &self.signatures {
             if let Some(entities) = self.index.get(name) {
-                let mut w = Arc::clone(&world);
+                let w = Arc::clone(world);
 
                 let e = Arc::clone(&entities);
 
@@ -462,7 +469,8 @@ impl SystemManager {
 
                 let handle = spawn(move || {
                     let mut sys = system.lock().unwrap();
-                    sys.start(delta, Arc::get_mut(&mut w).unwrap(), &e);
+                    let mut world = w.lock().unwrap();
+                    sys.start(delta, &mut world, &e);
                 });
 
                 handles.push(handle);
@@ -474,13 +482,13 @@ impl SystemManager {
         }
     }
 
-    pub fn update(&mut self, dt: f32, world: &mut Arc<World>) -> () {
+    pub fn update(&mut self, dt: f32, world: &Arc<Mutex<World>>) -> () {
         let mut handles = vec![];
 
         let instances = Arc::get_mut(&mut self.instances).unwrap();
         for (name, (_, index)) in &self.signatures {
             if let Some(entities) = self.index.get(name) {
-                let mut w = Arc::clone(&world);
+                let w = Arc::clone(world);
 
                 let e = Arc::clone(&entities);
 
@@ -490,7 +498,8 @@ impl SystemManager {
 
                 let handle = spawn(move || {
                     let mut sys = system.lock().unwrap();
-                    sys.update(delta, Arc::get_mut(&mut w).unwrap(), &e);
+                    let mut world = w.lock().unwrap();
+                    sys.update(delta, &mut world, &e);
                 });
 
                 handles.push(handle);
@@ -502,13 +511,13 @@ impl SystemManager {
         }
     }
 
-    pub fn stop(&mut self, dt: f32, world: &mut Arc<World>) -> () {
+    pub fn stop(&mut self, dt: f32, world: &Arc<Mutex<World>>) -> () {
         let mut handles = vec![];
 
         let instances = Arc::get_mut(&mut self.instances).unwrap();
         for (name, (_, index)) in &self.signatures {
             if let Some(entities) = self.index.get(name) {
-                let mut w = Arc::clone(&world);
+                let w = Arc::clone(world);
 
                 let e = Arc::clone(&entities);
 
@@ -518,7 +527,8 @@ impl SystemManager {
 
                 let handle = spawn(move || {
                     let mut sys = system.lock().unwrap();
-                    sys.stop(delta, Arc::get_mut(&mut w).unwrap(), &e);
+                    let mut world = w.lock().unwrap();
+                    sys.stop(delta, &mut world, &e);
                 });
 
                 handles.push(handle);
@@ -532,33 +542,36 @@ impl SystemManager {
 }
 
 pub struct WorldManager {
-    world: Arc<World>,
+    world: Arc<Mutex<World>>,
     system_manager: SystemManager,
 }
 
 impl WorldManager {
     pub fn new() -> Self {
         Self {
-            world: Arc::new(World::new()),
+            world: Arc::new(Mutex::new(World::new())),
             system_manager: SystemManager::new(),
         }
     }
 
     /*--- ENTITIES ---*/
     pub fn create_entity(&mut self) -> (Entity, String) {
-        let world = Arc::get_mut(&mut self.world).unwrap();
+        let _world = Arc::clone(&self.world);
+        let mut world = _world.lock().unwrap();
         world.create_entity()
     }
 
     pub fn destroy_entity(&mut self, entity: Entity) -> () {
-        let world = Arc::get_mut(&mut self.world).unwrap();
+        let _world = Arc::clone(&self.world);
+        let mut world = _world.lock().unwrap();
 
         world.destroy_entity(entity);
     }
 
     /*--- COMPONENTS ---*/
     pub fn register_component<Component: 'static + Send>(&mut self) -> () {
-        let world = Arc::get_mut(&mut self.world).unwrap();
+        let _world = Arc::clone(&self.world);
+        let mut world = _world.lock().unwrap();
 
         world.register::<Component>();
     }
@@ -568,14 +581,26 @@ impl WorldManager {
         entity: Entity,
         component: Component,
     ) -> () {
-        let world = Arc::get_mut(&mut self.world).unwrap();
+        let _world = Arc::clone(&self.world);
+        let mut world = _world.lock().unwrap();
 
         world.assign(entity, component);
         self.clean();
     }
 
+    pub fn get_component<Component: 'static + Send>(
+        &mut self,
+        entity: Entity,
+    ) -> Option<Arc<Mutex<Option<Component>>>> {
+        let _world = Arc::clone(&self.world);
+        let mut world = _world.lock().unwrap();
+
+        world.get_component::<Component>(entity)
+    }
+
     pub fn unassign<Component: 'static + Send>(&mut self, entity: Entity) -> () {
-        let world = Arc::get_mut(&mut self.world).unwrap();
+        let _world = Arc::clone(&self.world);
+        let mut world = _world.lock().unwrap();
 
         world.unassign::<Component>(entity);
         self.clean();
@@ -585,7 +610,8 @@ impl WorldManager {
     pub fn register_system<T: 'static + System + Send>(&mut self, system: T) -> () {
         let mut sig: SystemSignature = bitarr!(usize, Lsb0; 0; MAX_COMPONENTS);
 
-        let world = Arc::get_mut(&mut self.world).unwrap();
+        let _world = Arc::clone(&self.world);
+        let world = _world.lock().unwrap();
 
         for component_name in system.get_component_types() {
             let comp_sig = world.get_component_signature_from_name(component_name.to_string());
@@ -597,29 +623,30 @@ impl WorldManager {
     }
 
     pub fn systems_start(&mut self, dt: Option<f32>) -> () {
-        self.system_manager
-            .start(dt.unwrap_or(0.0), &mut self.world);
+        self.system_manager.start(dt.unwrap_or(0.0), &self.world);
         self.clean();
     }
 
     pub fn systems_update(&mut self, dt: f32) -> () {
-        self.system_manager.update(dt, &mut self.world);
+        self.system_manager.update(dt, &self.world);
         self.clean();
     }
 
     pub fn systems_stop(&mut self, dt: f32) -> () {
-        self.system_manager.stop(dt, &mut self.world);
+        self.system_manager.stop(dt, &self.world);
         self.clean();
     }
 
     fn clean(&mut self) -> () {
-        let world = Arc::get_mut(&mut self.world).unwrap();
+        let _world = Arc::clone(&self.world);
+        let world = _world.lock().unwrap();
 
-        let dirty = Arc::get_mut(&mut world.dirty).unwrap();
+        let _dirty = world.dirty.clone();
+        let mut dirty = _dirty.lock().unwrap();
 
-        for entity in dirty.clone() {
-            let sig = world.entity_manager.get_signature(entity);
-            self.system_manager.clean(entity, sig);
+        for entity in dirty.iter() {
+            let sig = world.entity_manager.get_signature(*entity);
+            self.system_manager.clean(*entity, sig);
         }
 
         dirty.clear();
