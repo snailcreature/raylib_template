@@ -272,4 +272,137 @@ mod tests {
             panic!("No Health!");
         }
     }
+
+    #[test]
+    fn full_multiple_thread_test() {
+        struct Health(i32);
+        struct Shield(i32);
+        struct Attack(i32);
+        struct Regen(i32);
+
+        struct BattleSystem {}
+
+        impl BattleSystem {
+            pub fn new() -> Self {
+                Self {}
+            }
+        }
+
+        impl crate::ecs_thread::types::System for BattleSystem {
+            fn get_component_types(&self) -> Vec<&'static str> {
+                type_names!(Health, Shield, Attack)
+            }
+
+            fn start(
+                &mut self,
+                _dt: f32,
+                _world: &mut crate::ecs_thread::World,
+                _entities: &std::collections::BTreeSet<crate::ecs_thread::types::Entity>,
+            ) -> () {
+                println!("\n--- START ---");
+                for _ in 0..5 {
+                    let (e, uuid) = _world.create_entity();
+
+                    println!("Entity: {} ({})", e, uuid);
+
+                    _world.assign(e, Health(10));
+                    _world.assign(e, Shield(2));
+                    _world.assign(e, Attack(6));
+
+                    if e % 2 == 0 {
+                        _world.assign(e, Regen(1));
+                    }
+                }
+            }
+
+            fn update(
+                &mut self,
+                _dt: f32,
+                _world: &mut crate::ecs_thread::World,
+                _entities: &std::collections::BTreeSet<crate::ecs_thread::types::Entity>,
+            ) -> () {
+                println!("\n--- UPDATE ---");
+                for entity in _entities {
+                    println!("Entity: {entity}");
+                    let _attack = _world.get_component::<Attack>(*entity).unwrap();
+                    let _shield = _world.get_component::<Shield>(*entity).unwrap();
+                    let _health = _world.get_component::<Health>(*entity).unwrap();
+
+                    let attack = _attack.lock().unwrap();
+                    let shield = _shield.lock().unwrap();
+                    let mut health = _health.lock().unwrap();
+
+                    if let (Some(health), Some(attack), Some(shield)) =
+                        (&mut *health, &*attack, &*shield)
+                    {
+                        println!(
+                            "Health: {:?}\nAttack: {:?}\nShield: {:?}\n",
+                            health.0, attack.0, shield.0
+                        );
+                        health.0 -= attack.0 - shield.0;
+                    }
+                }
+            }
+        }
+
+        struct RegenSystem {}
+
+        impl RegenSystem {
+            pub fn new() -> Self {
+                Self {}
+            }
+        }
+
+        impl crate::ecs_thread::types::System for RegenSystem {
+            fn get_component_types(&self) -> Vec<&'static str> {
+                type_names!(Health, Regen)
+            }
+
+            fn update(
+                &mut self,
+                _dt: f32,
+                _world: &mut crate::ecs_thread::World,
+                _entities: &std::collections::BTreeSet<crate::ecs_thread::types::Entity>,
+            ) -> () {
+                for entity in _entities {
+                    let _health = _world.get_component::<Health>(*entity).unwrap();
+                    let _regen = _world.get_component::<Regen>(*entity).unwrap();
+
+                    let mut health = _health.lock().unwrap();
+                    let regen = _regen.lock().unwrap();
+
+                    if let (Some(health), Some(regen)) = (&mut *health, &*regen) {
+                        health.0 += regen.0;
+                    }
+                }
+            }
+        }
+
+        let mut world = crate::ecs_thread::WorldManager::new();
+
+        world.register_component::<Health>();
+        world.register_component::<Shield>();
+        world.register_component::<Attack>();
+        world.register_component::<Regen>();
+
+        world.register_system(BattleSystem::new());
+        world.register_system(RegenSystem::new());
+
+        world.systems_start(None);
+        world.systems_update(0.0);
+        world.systems_stop(0.0);
+
+        let h0 = world.get_component::<Health>(0).unwrap();
+        let h1 = world.get_component::<Health>(1).unwrap();
+
+        let health0 = h0.lock().unwrap();
+        let health1 = h1.lock().unwrap();
+
+        if let (Some(health0), Some(health1)) = (&*health0, &*health1) {
+            assert_eq!(health0.0, 7);
+            assert_eq!(health1.0, 6);
+        } else {
+            panic!("No Health!");
+        }
+    }
 }
