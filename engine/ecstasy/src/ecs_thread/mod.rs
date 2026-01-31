@@ -458,6 +458,7 @@ impl SystemManager {
         }
     }
 
+    /// Start all systems in their own thread.
     pub fn start(&mut self, dt: f32, world: &Arc<Mutex<World>>) -> () {
         let mut handles = vec![];
 
@@ -487,6 +488,7 @@ impl SystemManager {
         }
     }
 
+    /// Update all systems in their own thread.
     pub fn update(&mut self, dt: f32, world: &Arc<Mutex<World>>) -> () {
         let mut handles = vec![];
 
@@ -516,6 +518,7 @@ impl SystemManager {
         }
     }
 
+    /// Stop all systems in their own thread.
     pub fn stop(&mut self, dt: f32, world: &Arc<Mutex<World>>) -> () {
         let mut handles = vec![];
 
@@ -546,6 +549,8 @@ impl SystemManager {
     }
 }
 
+/// Manage Systems and a World together, such that the Systems act on the Entities and Components
+/// of the World.
 pub struct WorldManager {
     world: Arc<Mutex<World>>,
     system_manager: SystemManager,
@@ -560,12 +565,14 @@ impl WorldManager {
     }
 
     /*--- ENTITIES ---*/
+    /// Spawn a new blank Entity.
     pub fn create_entity(&mut self) -> (Entity, String) {
         let _world = Arc::clone(&self.world);
         let mut world = _world.lock().unwrap();
         world.create_entity()
     }
 
+    /// Destroy an Entity.
     pub fn destroy_entity(&mut self, entity: Entity) -> () {
         let _world = Arc::clone(&self.world);
         let mut world = _world.lock().unwrap();
@@ -574,6 +581,7 @@ impl WorldManager {
     }
 
     /*--- COMPONENTS ---*/
+    /// Register a Component in the World.
     pub fn register_component<Component: 'static + Send>(&mut self) -> () {
         let _world = Arc::clone(&self.world);
         let mut world = _world.lock().unwrap();
@@ -581,6 +589,7 @@ impl WorldManager {
         world.register::<Component>();
     }
 
+    /// Assign a registered Component to an Entity.
     pub fn assign<Component: 'static + Send>(
         &mut self,
         entity: Entity,
@@ -593,6 +602,8 @@ impl WorldManager {
         self.clean();
     }
 
+    /// Get a Component of an Entity.
+    /// !! DO NOT use this to remove Components from Entities. Use WorldManager.unassign !!
     pub fn get_component<Component: 'static + Send>(
         &mut self,
         entity: Entity,
@@ -603,6 +614,7 @@ impl WorldManager {
         world.get_component::<Component>(entity)
     }
 
+    /// Remove a Component from an Entity.
     pub fn unassign<Component: 'static + Send>(&mut self, entity: Entity) -> () {
         let _world = Arc::clone(&self.world);
         let mut world = _world.lock().unwrap();
@@ -612,6 +624,7 @@ impl WorldManager {
     }
 
     /*--- SYSTEMS ---*/
+    /// Register a System with the SystemManager.
     pub fn register_system<T: 'static + System + Send>(&mut self, system: T) -> () {
         let mut sig: SystemSignature = bitarr!(usize, Lsb0; 0; MAX_COMPONENTS);
 
@@ -627,21 +640,25 @@ impl WorldManager {
         self.system_manager.register(system, sig);
     }
 
+    /// Run each registered System's `start` function in a thread.
     pub fn systems_start(&mut self, dt: Option<f32>) -> () {
         self.system_manager.start(dt.unwrap_or(0.0), &self.world);
         self.clean();
     }
 
+    /// Run each registered System's `update` function in a thread.
     pub fn systems_update(&mut self, dt: f32) -> () {
         self.system_manager.update(dt, &self.world);
         self.clean();
     }
 
+    /// Run each registered System's `stop` function in a thread.
     pub fn systems_stop(&mut self, dt: f32) -> () {
         self.system_manager.stop(dt, &self.world);
         self.clean();
     }
 
+    /// Reindex all System's Entity indices.
     fn clean(&mut self) -> () {
         let _world = Arc::clone(&self.world);
         let world = _world.lock().unwrap();
