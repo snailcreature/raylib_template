@@ -51,7 +51,12 @@ impl ComponentManager {
             .insert(name.to_string(), (self.components, component_sig));
 
         let new_vec: ComponentVecRef<Component> =
-            vec![Arc::new(Mutex::new(None)); MAX_ENTITIES].into();
+            Vec::from_iter(core::array::from_fn::<
+                Arc<Mutex<Option<Component>>>,
+                MAX_ENTITIES,
+                _,
+            >(|_| Arc::new(Mutex::new(None))))
+            .into();
 
         let instances = Arc::get_mut(&mut self.component_instances).unwrap();
 
@@ -100,7 +105,7 @@ impl ComponentManager {
 
         let component_vec = instances[ind].as_any_mut();
 
-        if let Some(com_vec) = component_vec.downcast_mut::<ComponentVecRef<Component>>() {
+        if let Some(com_vec) = component_vec.downcast_ref::<ComponentVecRef<Component>>() {
             if let Some(component) = com_vec.get(entity) {
                 return Some(component.clone());
             }

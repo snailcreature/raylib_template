@@ -208,8 +208,11 @@ mod tests {
                 _world: &mut crate::ecs_thread::World,
                 _entities: &std::collections::BTreeSet<crate::ecs_thread::types::Entity>,
             ) -> () {
+                println!("\n--- START ---");
                 for _ in 0..5 {
-                    let (e, _) = _world.create_entity();
+                    let (e, uuid) = _world.create_entity();
+
+                    println!("Entity: {} ({})", e, uuid);
 
                     _world.assign(e, Health(10));
                     _world.assign(e, Shield(2));
@@ -223,7 +226,9 @@ mod tests {
                 _world: &mut crate::ecs_thread::World,
                 _entities: &std::collections::BTreeSet<crate::ecs_thread::types::Entity>,
             ) -> () {
+                println!("\n--- UPDATE ---");
                 for entity in _entities {
+                    println!("Entity: {entity}");
                     let _attack = _world.get_component::<Attack>(*entity).unwrap();
                     let _shield = _world.get_component::<Shield>(*entity).unwrap();
                     let _health = _world.get_component::<Health>(*entity).unwrap();
@@ -232,11 +237,14 @@ mod tests {
                     let shield = _shield.lock().unwrap();
                     let mut health = _health.lock().unwrap();
 
-                    match (&mut *health, &*attack, &*shield) {
-                        (Some(health), Some(attack), Some(shield)) => {
-                            health.0 -= attack.0 - shield.0;
-                        }
-                        _ => {}
+                    if let (Some(health), Some(attack), Some(shield)) =
+                        (&mut *health, &*attack, &*shield)
+                    {
+                        println!(
+                            "Health: {:?}\nAttack: {:?}\nShield: {:?}\n",
+                            health.0, attack.0, shield.0
+                        );
+                        health.0 -= attack.0 - shield.0;
                     }
                 }
             }
