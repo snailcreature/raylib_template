@@ -412,6 +412,10 @@ pub struct SystemManager {
     index: HashMap<String, Arc<BTreeSet<Entity>>>,
     /// Number of registered Systems.
     systems: usize,
+    /// Name and index of the system to run before the others.
+    first: Option<(String, usize)>,
+    /// Name and index of the system to run after the others are done.
+    last: Option<(String, usize)>,
 }
 
 impl SystemManager {
@@ -421,6 +425,8 @@ impl SystemManager {
             signatures: HashMap::new(),
             index: HashMap::new(),
             systems: 0,
+            first: None,
+            last: None,
         }
     }
 
@@ -444,6 +450,32 @@ impl SystemManager {
         self.systems += 1;
     }
 
+    /// Declare which system should run to completion before all others begin.
+    pub fn first<Sys: 'static + System + Send>(&mut self) -> () {
+        let name = type_name::<Sys>().to_string();
+
+        if !self.signatures.contains_key(&name) {
+            panic!("No System by name {} registered!", name);
+        }
+
+        let (_, ind) = self.signatures[&name];
+
+        self.first = Some((name, ind));
+    }
+
+    /// Declare which system should run after all others have completed.
+    pub fn last<Sys: 'static + System + Send>(&mut self) -> () {
+        let name = type_name::<Sys>().to_string();
+
+        if !self.signatures.contains_key(&name) {
+            panic!("No System by name {} registered!", name);
+        }
+
+        let (_, ind) = self.signatures[&name];
+
+        self.last = Some((name, ind));
+    }
+
     /// Ensure the Entity index for each System is up to date.
     pub fn clean(&mut self, entity: Entity, ent_sig: EntitySignature) -> () {
         for (name, (sys_sig, _)) in &self.signatures {
@@ -460,10 +492,33 @@ impl SystemManager {
 
     /// Start all systems in their own thread.
     pub fn start(&mut self, dt: f32, world: &Arc<Mutex<World>>) -> () {
+        let instances = Arc::get_mut(&mut self.instances).unwrap();
+
+        if let Some((name, index)) = &self.first {
+            let w = Arc::clone(world);
+            let mut world = w.lock().unwrap();
+            let entities = self.index[name].clone();
+
+            let mut system = instances[*index].lock().unwrap();
+
+            system.start(dt, &mut world, &entities);
+        }
+
         let mut handles = vec![];
 
-        let instances = Arc::get_mut(&mut self.instances).unwrap();
         for (name, (_, index)) in &self.signatures {
+            if let Some((_, i)) = &self.first {
+                if index == i {
+                    continue;
+                }
+            }
+
+            if let Some((_, i)) = &self.last {
+                if index == i {
+                    continue;
+                }
+            }
+
             if let Some(entities) = self.index.get(name) {
                 let w = Arc::clone(world);
 
@@ -486,14 +541,47 @@ impl SystemManager {
         for handle in handles {
             handle.join().unwrap();
         }
+
+        if let Some((name, index)) = &self.last {
+            let w = Arc::clone(world);
+            let mut world = w.lock().unwrap();
+            let entities = self.index[name].clone();
+
+            let mut system = instances[*index].lock().unwrap();
+
+            system.start(dt, &mut world, &entities);
+        }
     }
 
     /// Update all systems in their own thread.
     pub fn update(&mut self, dt: f32, world: &Arc<Mutex<World>>) -> () {
+        let instances = Arc::get_mut(&mut self.instances).unwrap();
+
+        if let Some((name, index)) = &self.first {
+            let w = Arc::clone(world);
+            let mut world = w.lock().unwrap();
+            let entities = self.index[name].clone();
+
+            let mut system = instances[*index].lock().unwrap();
+
+            system.update(dt, &mut world, &entities);
+        }
+
         let mut handles = vec![];
 
-        let instances = Arc::get_mut(&mut self.instances).unwrap();
         for (name, (_, index)) in &self.signatures {
+            if let Some((_, i)) = &self.first {
+                if index == i {
+                    continue;
+                }
+            }
+
+            if let Some((_, i)) = &self.last {
+                if index == i {
+                    continue;
+                }
+            }
+
             if let Some(entities) = self.index.get(name) {
                 let w = Arc::clone(world);
 
@@ -516,14 +604,47 @@ impl SystemManager {
         for handle in handles {
             handle.join().unwrap();
         }
+
+        if let Some((name, index)) = &self.last {
+            let w = Arc::clone(world);
+            let mut world = w.lock().unwrap();
+            let entities = self.index[name].clone();
+
+            let mut system = instances[*index].lock().unwrap();
+
+            system.update(dt, &mut world, &entities);
+        }
     }
 
     /// Stop all systems in their own thread.
     pub fn stop(&mut self, dt: f32, world: &Arc<Mutex<World>>) -> () {
+        let instances = Arc::get_mut(&mut self.instances).unwrap();
+
+        if let Some((name, index)) = &self.first {
+            let w = Arc::clone(world);
+            let mut world = w.lock().unwrap();
+            let entities = self.index[name].clone();
+
+            let mut system = instances[*index].lock().unwrap();
+
+            system.stop(dt, &mut world, &entities);
+        }
+
         let mut handles = vec![];
 
-        let instances = Arc::get_mut(&mut self.instances).unwrap();
         for (name, (_, index)) in &self.signatures {
+            if let Some((_, i)) = &self.first {
+                if index == i {
+                    continue;
+                }
+            }
+
+            if let Some((_, i)) = &self.last {
+                if index == i {
+                    continue;
+                }
+            }
+
             if let Some(entities) = self.index.get(name) {
                 let w = Arc::clone(world);
 
@@ -545,6 +666,16 @@ impl SystemManager {
 
         for handle in handles {
             handle.join().unwrap();
+        }
+
+        if let Some((name, index)) = &self.last {
+            let w = Arc::clone(world);
+            let mut world = w.lock().unwrap();
+            let entities = self.index[name].clone();
+
+            let mut system = instances[*index].lock().unwrap();
+
+            system.stop(dt, &mut world, &entities);
         }
     }
 }
@@ -638,6 +769,16 @@ impl WorldManager {
         }
 
         self.system_manager.register(system, sig);
+    }
+
+    /// Declare which System should always complete before any other starts.
+    pub fn first<T: 'static + System + Send>(&mut self) -> () {
+        self.system_manager.first::<T>()
+    }
+
+    /// Declare which System should only start after all others have completed.
+    pub fn last<T: 'static + System + Send>(&mut self) -> () {
+        self.system_manager.last::<T>()
     }
 
     /// Run each registered System's `start` function in a thread.

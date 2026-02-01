@@ -3,14 +3,15 @@ pub mod ecs;
 pub mod ecs_thread;
 
 pub mod prelude {
-    pub use crate::ecs::{Entity, System, WorldManager, macros::helpers};
+    pub use crate::ecs_thread::{
+        WorldManager,
+        types::{Entity, System},
+    };
     pub use crate::type_names;
 }
 
 #[cfg(test)]
 mod tests {
-    use std::sync::Arc;
-
     use bitvec::{bitarr, order::Lsb0};
 
     use crate::{
