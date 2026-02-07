@@ -1,7 +1,5 @@
-mod bus;
-mod module;
+pub mod bus;
+pub mod module;
 
-pub mod event {
-    use super::bus::*;
-    use super::module::*;
-}
+pub use bus::*;
+pub use module::*;
