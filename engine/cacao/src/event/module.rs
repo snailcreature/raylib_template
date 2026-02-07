@@ -1,6 +1,6 @@
 use std::thread::Result;
 
-use crossbeam_channel::{Receiver, Sender};
+use crossbeam_channel::Receiver;
 
 use super::bus::{Event, EventBus};
 
@@ -13,18 +13,15 @@ pub trait Module {
 #[derive(Debug)]
 pub struct ModuleCtx {
     pub name: String,
-    pub sender: Sender<Event>,
     pub receiver: Receiver<Event>,
 }
 
 impl ModuleCtx {
-    pub fn new(name: &str, bus: &EventBus) -> Self {
-        let sender = bus.grab();
-        let receiver = bus.subscribe();
+    pub fn new(name: &str, bus: &mut EventBus) -> Self {
+        let receiver = bus.subscribe(name.to_string());
 
         Self {
             name: name.to_string(),
-            sender,
             receiver,
         }
     }
