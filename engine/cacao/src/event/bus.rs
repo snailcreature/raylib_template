@@ -10,6 +10,9 @@ use std::{
 };
 
 use crossbeam_channel::{Receiver, Sender, bounded};
+use serde::Serialize;
+
+use crate::event::ron_serialise;
 
 #[derive(Clone, Debug)]
 pub struct Event {
@@ -27,6 +30,13 @@ impl Event {
 pub enum EventKind {
     Empty,
     Post(String),
+}
+
+impl EventKind {
+    pub fn new_post<E: Serialize>(data: E) -> EventKind {
+        let serialised = ron_serialise(data);
+        Self::Post(serialised)
+    }
 }
 
 pub struct EventBus {

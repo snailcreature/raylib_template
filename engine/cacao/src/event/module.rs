@@ -1,9 +1,11 @@
 use std::thread::Result;
 
+use async_trait::async_trait;
 use crossbeam_channel::Receiver;
 
 use super::bus::{Event, EventBus};
 
+#[async_trait]
 pub trait Module {
     type Response;
     fn new(ctx: ModuleCtx) -> Self;
