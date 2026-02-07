@@ -333,15 +333,16 @@ mod tests {
                     let shield = _shield.lock().unwrap();
                     let mut health = _health.lock().unwrap();
 
-                    if let (Some(health), Some(attack), Some(shield)) =
+                    let (Some(health), Some(attack), Some(shield)) =
                         (&mut *health, &*attack, &*shield)
-                    {
-                        println!(
-                            "Health: {:?}\nAttack: {:?}\nShield: {:?}\n",
-                            health.0, attack.0, shield.0
-                        );
-                        health.0 -= attack.0 - shield.0;
-                    }
+                    else {
+                        continue;
+                    };
+                    println!(
+                        "Health: {:?}\nAttack: {:?}\nShield: {:?}\n",
+                        health.0, attack.0, shield.0
+                    );
+                    health.0 -= attack.0 - shield.0;
                 }
             }
         }
@@ -372,9 +373,10 @@ mod tests {
                     let mut health = _health.lock().unwrap();
                     let regen = _regen.lock().unwrap();
 
-                    if let (Some(health), Some(regen)) = (&mut *health, &*regen) {
-                        health.0 += regen.0;
-                    }
+                    let (Some(health), Some(regen)) = (&mut *health, &*regen) else {
+                        continue;
+                    };
+                    health.0 += regen.0;
                 }
             }
         }
