@@ -1,19 +1,25 @@
-use std::thread::Result;
+use std::thread::JoinHandle;
 
-use async_trait::async_trait;
 use crossbeam_channel::Receiver;
 
 use super::bus::{Event, EventBroker};
 
 /// Trait representing a Module that will listen for [Event]s.
-#[async_trait]
 pub trait Module {
     /// Type that the [Module::run] function should return.
     type Response;
     /// Create a new [Module], storing the [ModuleCtx].
     fn new(ctx: ModuleCtx) -> Self;
-    /// Action to perform when an event is received.
-    async fn run(&mut self) -> Result<Self::Response>;
+    /// Start a thread to listen for and handle [Event]s sent to this Module.
+    ///
+    /// Use a [ModuleCtx::receiver] to listen for events, use [ron_deserialise] to extract data
+    /// from the [Payload], then perform some action based on that data.
+    ///
+    /// See [EventBroker::init] for an example of how this could work.
+    ///
+    /// [ron_deserialise]: super::serial::ron_deserialise
+    /// [payload]: super::bus::Payload
+    fn run(&mut self) -> JoinHandle<()>;
 }
 
 /// Context for a [Module].
