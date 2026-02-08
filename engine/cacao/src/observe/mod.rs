@@ -1,15 +1,17 @@
 //! An implementation of the Observer pattern.
 
+use std::sync::Arc;
+
 /// An object that has its state observed.
 pub struct Subject<StateType> {
-    state: StateType,
+    state: Arc<StateType>,
     observers: Vec<Box<dyn Observer<StateType>>>,
 }
 
 impl<StateType> Subject<StateType> {
     pub fn new(state: StateType) -> Self {
         Self {
-            state,
+            state: Arc::new(state),
             observers: Vec::new(),
         }
     }
@@ -26,7 +28,8 @@ impl<StateType> Subject<StateType> {
 
     /// Update the state and notify the Observers.
     pub fn update_state(&mut self, state: StateType) -> () {
-        self.state = state;
+        let old_state = Arc::get_mut(&mut self.state).unwrap();
+        *old_state = state;
         self.notify();
     }
 
