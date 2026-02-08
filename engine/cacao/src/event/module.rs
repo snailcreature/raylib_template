@@ -3,7 +3,7 @@ use std::thread::Result;
 use async_trait::async_trait;
 use crossbeam_channel::Receiver;
 
-use super::bus::{Event, EventBus};
+use super::bus::{Event, EventBroker};
 
 #[async_trait]
 pub trait Module {
@@ -19,7 +19,7 @@ pub struct ModuleCtx {
 }
 
 impl ModuleCtx {
-    pub fn new(name: &str, bus: &mut EventBus) -> Self {
+    pub fn new(name: &str, bus: &mut EventBroker) -> Self {
         let receiver = bus.subscribe(name.to_string());
 
         Self {

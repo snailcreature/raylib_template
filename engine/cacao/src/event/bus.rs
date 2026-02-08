@@ -17,36 +17,36 @@ use crate::event::ron_serialise;
 #[derive(Clone, Debug)]
 pub struct Event {
     pub module: String,
-    pub kind: EventKind,
+    pub payload: Payload,
 }
 
 impl Event {
-    pub fn new(module: String, kind: EventKind) -> Self {
-        Self { module, kind }
+    pub fn new(module: String, payload: Payload) -> Self {
+        Self { module, payload }
     }
 }
 
 #[derive(Clone, Debug)]
-pub enum EventKind {
+pub enum Payload {
     Empty,
     Post(String),
 }
 
-impl EventKind {
-    pub fn new_post<E: Serialize>(data: E) -> EventKind {
+impl Payload {
+    pub fn new_post<E: Serialize>(data: E) -> Payload {
         let serialised = ron_serialise(data);
         Self::Post(serialised)
     }
 }
 
-pub struct EventBus {
+pub struct EventBroker {
     sender: Sender<Event>,
     receiver: Receiver<Event>,
     modules: Arc<Mutex<BTreeMap<String, Sender<Event>>>>,
     handle: Option<JoinHandle<()>>,
 }
 
-impl EventBus {
+impl EventBroker {
     pub fn new() -> Self {
         let (tx, rx) = bounded(100);
 
