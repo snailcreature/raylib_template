@@ -10,7 +10,10 @@ pub mod prelude {
 
 #[cfg(test)]
 mod tests {
-    use crate::command::{Command, CommandStack, CommandUndo};
+    use crate::{
+        command::{Command, CommandStack, CommandUndo},
+        observe::{Observer, Subject},
+    };
 
     struct Test {
         pub value: String,
@@ -75,5 +78,38 @@ mod tests {
         cmd_stack.undo();
 
         cmd_stack.redo();
+    }
+
+    #[test]
+    fn observe_test() {
+        struct TestSubject(i32);
+
+        struct TestObserver {}
+
+        impl TestObserver {
+            pub fn new() -> Self {
+                Self {}
+            }
+        }
+
+        impl Observer<TestSubject> for TestObserver {
+            fn update(&self, state: &TestSubject) {
+                assert_eq!(state.0, 50);
+            }
+        }
+
+        let mut test_subject = Subject::new(TestSubject(30));
+
+        let o0 = TestObserver::new();
+        let o1 = TestObserver::new();
+        let o2 = TestObserver::new();
+        let o3 = TestObserver::new();
+
+        test_subject.attach(Box::new(o0));
+        test_subject.attach(Box::new(o1));
+        test_subject.attach(Box::new(o2));
+        test_subject.attach(Box::new(o3));
+
+        test_subject.update_state(TestSubject(50));
     }
 }
