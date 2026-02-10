@@ -10,8 +10,13 @@ pub mod prelude {
 
 #[cfg(test)]
 mod tests {
+    use std::thread;
+
+    use serde::{Deserialize, Serialize};
+
     use crate::{
         command::{Command, CommandStack, CommandUndo},
+        event::{Event, EventBroker, Module, ModuleCtx, Payload, ron_deserialise, ron_serialise},
         observe::{Observer, Subject},
     };
 
@@ -111,5 +116,57 @@ mod tests {
         test_subject.attach(Box::new(o3));
 
         test_subject.update_state(TestSubject(50));
+    }
+
+    #[test]
+    fn event_test() {
+        #[derive(Serialize, Deserialize)]
+        struct TestEvent(i32);
+
+        struct TestHandler {
+            ctx: ModuleCtx,
+        }
+
+        impl Module for TestHandler {
+            type Response = ();
+            fn new(ctx: crate::prelude::ModuleCtx) -> Self {
+                Self { ctx }
+            }
+
+            fn run(&mut self) -> std::thread::JoinHandle<()> {
+                let rx = self.ctx.receiver.clone();
+                thread::spawn(move || {
+                    loop {
+                        let Ok(event) = rx.recv() else {
+                            continue;
+                        };
+
+                        let Payload::Post(data) = event.payload else {
+                            continue;
+                        };
+                        let event: TestEvent = ron_deserialise(&data);
+
+                        assert_eq!(event.0, 50);
+
+                        break;
+                    }
+                })
+            }
+        }
+
+        let mut broker = EventBroker::new();
+
+        let mut test_handler = TestHandler::new(ModuleCtx::new("test", &mut broker));
+
+        broker.init();
+
+        let handle = test_handler.run();
+
+        broker.publish(Event::new(
+            "test".to_string(),
+            Payload::Post(ron_serialise(TestEvent(50))),
+        ));
+
+        handle.join().unwrap();
     }
 }
