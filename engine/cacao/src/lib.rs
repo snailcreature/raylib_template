@@ -16,7 +16,7 @@ mod tests {
 
     use crate::{
         command::{Command, CommandStack, CommandUndo},
-        event::{Event, EventBroker, Module, ModuleCtx, Payload, ron_deserialise, ron_serialise},
+        event::{Event, EventBroker, Module, ModuleCtx, Payload, ron_deserialise},
         observe::{Observer, Subject},
     };
 
@@ -164,7 +164,7 @@ mod tests {
 
         broker.publish(Event::new(
             "test".to_string(),
-            Payload::Post(ron_serialise(TestEvent(50))),
+            Payload::new_post(TestEvent(50)),
         ));
 
         handle.join().unwrap();

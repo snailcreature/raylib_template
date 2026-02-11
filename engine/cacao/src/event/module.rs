@@ -35,8 +35,8 @@ pub struct ModuleCtx {
 impl ModuleCtx {
     /// Create a new [ModuleCtx], [subscribing](EventBroker::subscribe) it to the given
     /// [EventBroker].
-    pub fn new(name: &str, bus: &mut EventBroker) -> Self {
-        let receiver = bus.subscribe(name.to_string());
+    pub fn new(name: &str, broker: &mut EventBroker) -> Self {
+        let receiver = broker.subscribe(name.to_string());
 
         Self {
             name: name.to_string(),
