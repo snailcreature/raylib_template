@@ -4,11 +4,13 @@ use std::{
     sync::Weak,
 };
 
+/// Trait for casting structs to Any.
 trait IAsAny {
     /// Get a reference to the object.
     fn as_any(&self) -> &dyn Any;
 }
 
+/// Implementation of an AssetLoader for a specific AssetType.
 pub trait AssetLoader<AssetType: 'static> {
     /// Load an asset from a given location on disc.
     fn load_asset(&self, path: &String) -> Weak<AssetType>;
@@ -26,6 +28,7 @@ impl IAsAny for Weak<dyn Any> {
     }
 }
 
+/// Manages the different assets and [AssetLoader]s.
 pub struct AssetManager {
     asset_loaders: HashMap<String, Box<dyn IAsAny>>,
     loaded_assets: HashMap<String, Weak<dyn Any>>,
@@ -39,6 +42,7 @@ impl AssetManager {
         }
     }
 
+    /// Register an [AssetLoader] for a given AssetType.
     pub fn register<AssetType: 'static>(&mut self, loader: Box<dyn AssetLoader<AssetType>>) -> () {
         let name = type_name::<AssetType>();
 
