@@ -1,7 +1,7 @@
 use std::{
     any::{Any, type_name},
     collections::HashMap,
-    sync::Weak,
+    sync::{Arc, Weak},
 };
 
 /// Trait for casting structs to Any.
@@ -13,7 +13,7 @@ trait IAsAny {
 /// Implementation of an AssetLoader for a specific AssetType.
 pub trait AssetLoader<AssetType: 'static> {
     /// Load an asset from a given location on disc.
-    fn load_asset(&self, path: &String) -> Weak<AssetType>;
+    fn load_asset(&self, path: &String) -> AssetType;
 }
 
 impl<AssetType: 'static> IAsAny for Box<dyn AssetLoader<AssetType>> {
@@ -22,7 +22,7 @@ impl<AssetType: 'static> IAsAny for Box<dyn AssetLoader<AssetType>> {
     }
 }
 
-impl IAsAny for Weak<dyn Any> {
+impl<AssetType: ?Sized + 'static> IAsAny for Arc<AssetType> {
     fn as_any(&self) -> &dyn Any {
         self as &dyn Any
     }
@@ -31,7 +31,7 @@ impl IAsAny for Weak<dyn Any> {
 /// Manages the different assets and [AssetLoader]s.
 pub struct AssetManager {
     asset_loaders: HashMap<String, Box<dyn IAsAny>>,
-    loaded_assets: HashMap<String, Weak<dyn Any>>,
+    loaded_assets: HashMap<String, Box<dyn IAsAny>>,
 }
 
 impl AssetManager {
@@ -63,11 +63,12 @@ impl AssetManager {
             panic!("No loader registered for AssetType {name}");
         }
 
-        if let Some(asset) = self.loaded_assets.get(&path.to_string()).cloned() {
-            if asset.weak_count() != 0 {
-                let asset = asset.as_any().downcast_ref::<Weak<AssetType>>().unwrap();
-                return asset.clone();
-            }
+        if let Some(asset_raw) = self.loaded_assets.get(&path.to_string()).clone() {
+            let Some(asset_arc) = asset_raw.as_any().downcast_ref::<Arc<AssetType>>() else {
+                panic!("Failed to get reference!");
+            };
+
+            return Arc::downgrade(asset_arc);
         }
 
         if let Some(loader) = self.asset_loaders.get(name) {
@@ -76,19 +77,12 @@ impl AssetManager {
                 .downcast_ref::<Box<dyn AssetLoader<AssetType>>>()
                 .unwrap();
 
-            let asset: Weak<AssetType> = loader.load_asset(&path);
+            let asset_raw: AssetType = loader.load_asset(&path);
 
-            self.loaded_assets.insert(path.to_string(), asset);
+            let asset = Box::new(Arc::new(asset_raw));
+            self.loaded_assets.insert(path.to_string(), asset.clone());
 
-            let registered_asset = self
-                .loaded_assets
-                .get(&path.to_string())
-                .unwrap()
-                .as_any()
-                .downcast_ref::<Weak<AssetType>>()
-                .unwrap();
-
-            return registered_asset.clone();
+            return Arc::downgrade(&asset);
         }
 
         panic!("Failed to load AssetType {name} from {path}")
