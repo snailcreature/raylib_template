@@ -1,3 +1,5 @@
+mod imgui_compat;
+
 use std::ops::Range;
 
 use raylib::consts::{KeyboardKey::*, MouseButton::*};
