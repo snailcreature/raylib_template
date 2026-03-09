@@ -18,10 +18,9 @@ impl AssetLoader<String> for TextLoader {
         let mut s = String::new();
         match file.read_to_string(&mut s) {
             Err(reason) => panic!("Could not read {}: {}", display, reason),
-            Ok(count) => println!("Read {}: {}", display, count),
+            Ok(_) => {}
         };
 
         s
     }
 }
-

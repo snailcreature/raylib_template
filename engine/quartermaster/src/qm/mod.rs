@@ -22,7 +22,7 @@ impl<AssetType: 'static> IAsAny for Box<dyn AssetLoader<AssetType>> {
     }
 }
 
-impl<AssetType: ?Sized + 'static> IAsAny for Arc<AssetType> {
+impl<AssetType: ?Sized + 'static> IAsAny for Weak<AssetType> {
     fn as_any(&self) -> &dyn Any {
         self as &dyn Any
     }
@@ -56,7 +56,7 @@ impl AssetManager {
 
     /// Will attempt to retreive an existing copy of an asset from memory. Failing this, will call
     /// on the relevant [AssetLoader] implementation to load the asset from disc.
-    pub fn get_asset<AssetType: 'static>(&mut self, path: String) -> Weak<AssetType> {
+    pub fn get_asset<AssetType: 'static>(&mut self, path: String) -> Arc<AssetType> {
         let name = type_name::<AssetType>();
 
         if !self.asset_loaders.contains_key(name) {
@@ -64,11 +64,13 @@ impl AssetManager {
         }
 
         if let Some(asset_raw) = self.loaded_assets.get(&path.to_string()).clone() {
-            let Some(asset_arc) = asset_raw.as_any().downcast_ref::<Arc<AssetType>>() else {
+            let Some(asset_arc) = asset_raw.as_any().downcast_ref::<Weak<AssetType>>() else {
                 panic!("Failed to get reference!");
             };
 
-            return Arc::downgrade(asset_arc);
+            if let Some(asset) = Weak::upgrade(asset_arc) {
+                return asset;
+            }
         }
 
         if let Some(loader) = self.asset_loaders.get(name) {
@@ -79,10 +81,12 @@ impl AssetManager {
 
             let asset_raw: AssetType = loader.load_asset(&path);
 
-            let asset = Box::new(Arc::new(asset_raw));
-            self.loaded_assets.insert(path.to_string(), asset.clone());
+            let asset = Arc::new(asset_raw);
+            let asset_ref: Weak<AssetType> = Arc::downgrade(&asset);
+            self.loaded_assets
+                .insert(path.to_string(), Box::new(asset_ref));
 
-            return Arc::downgrade(&asset);
+            return asset;
         }
 
         panic!("Failed to load AssetType {name} from {path}")

@@ -7,7 +7,7 @@ pub mod prelude {
 
 #[cfg(test)]
 mod tests {
-    use std::sync::Weak;
+    use std::sync::Arc;
 
     use crate::{basic::TextLoader, qm::AssetManager};
 
@@ -17,13 +17,9 @@ mod tests {
 
         am.register(Box::new(TextLoader::default()));
 
-        let s: Weak<String> = am.get_asset("./test_assets/test.txt".to_string());
+        let s: Arc<String> = am.get_asset("./test_assets/test.txt".to_string());
 
-        let Some(string) = s.upgrade() else {
-            panic!("No asset found!")
-        };
-
-        assert_eq!(*string, "Hello, World!\n".to_string())
+        assert_eq!(*s, "Hello, World!\n".to_string())
     }
 
     #[test]
@@ -35,15 +31,39 @@ mod tests {
         let path = "./test_assets/test.txt".to_string();
 
         println!("s0");
-        let s0: Weak<String> = am.get_asset(path.clone());
+        let s0: Arc<String> = am.get_asset(path.clone());
         println!("s1");
-        let s1: Weak<String> = am.get_asset(path);
+        let s1: Arc<String> = am.get_asset(path);
 
-        let (Some(string0), Some(string1)) = (s0.upgrade(), s1.upgrade()) else {
-            panic!("Failed to load an asset!")
-        };
+        assert_eq!(*s0, "Hello, World!\n".to_string());
+        assert_eq!(*s1, "Hello, World!\n".to_string())
+    }
 
-        assert_eq!(*string0, "Hello, World!\n".to_string());
-        assert_eq!(*string1, "Hello, World!\n".to_string())
+    #[test]
+    fn load_unload() {
+        let mut am = AssetManager::new();
+
+        am.register(Box::new(TextLoader::default()));
+
+        let path = "./test_assets/test.txt".to_string();
+
+        println!("s0");
+        let s0: Arc<String> = am.get_asset(path.clone());
+        println!("s1");
+        let s1: Arc<String> = am.get_asset(path.clone());
+
+        assert_eq!(*s0, "Hello, World!\n".to_string());
+        assert_eq!(*s1, "Hello, World!\n".to_string());
+
+        drop(s0);
+        drop(s1);
+
+        println!("s2");
+        let s2: Arc<String> = am.get_asset(path.clone());
+        println!("s3");
+        let s3: Arc<String> = am.get_asset(path);
+
+        assert_eq!(*s2, "Hello, World!\n".to_string());
+        assert_eq!(*s3, "Hello, World!\n".to_string());
     }
 }
