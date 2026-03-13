@@ -9,3 +9,14 @@ You will need raylib installed:
 And you will need Emscripten installed for web builds:
 
 `brew install emscripten`
+
+## Inclusions
+
+This template includes a handful of data structures and programming patterns
+implemented for ease of use:
+
+1. [Ecstasy](/engine/ecstasy/) - an ECS implementation
+2. [Cacao](/engine/cacao/) - a very basic events system with observers and
+   commands
+3. [Quartermaster](/engine/quartermaster) - an asset manager with automatic
+   memory management
