@@ -1,16 +1,15 @@
-// #[cfg(target_family = "wasm")]
-use std::{env, fs, path::Path};
-
-// #[cfg(target_os = "emscripten")]
 fn main() {
-    let crate_name = env!("CARGO_PKG_NAME");
-    let crate_desc = env!("CARGO_PKG_DESCRIPTION");
+    println!("cargo::rustc-check-cfg=cfg(target_os, values(\"emscripten\"))");
+    {
+        use std::{env, fs, path::Path};
+        let crate_name = env!("CARGO_PKG_NAME");
+        let crate_desc = env!("CARGO_PKG_DESCRIPTION");
 
-    let out_dir = env::var("OUT_DIR").unwrap();
-    let out_filename = format_args!("{}/index.html", out_dir).to_string();
-    let out_filepath = Path::new(&out_filename);
-    println!("cargo::warning=\"Output index: {:?}\"", out_filepath);
-    let index_html = format_args!("
+        let out_dir = env::var("OUT_DIR").unwrap();
+        let out_filename = format_args!("{}/index.html", out_dir).to_string();
+        let out_filepath = Path::new(&out_filename);
+        println!("cargo::warning=\"Output index: {:?}\"", out_filepath);
+        let index_html = format_args!("
     <!doctype html>\
     <html lang=\"en-us\">\
     <head>\
@@ -349,13 +348,12 @@ fn main() {
     </html>
         ").to_string();
 
-    match fs::write(out_filepath, index_html) {
-        Ok(_) => println!("cargo::warning=\"Created index.html\""),
-        Err(err) => println!("cargo::error=\"Failed to create index.html withh error: {}\"", err),
+        match fs::write(out_filepath, index_html) {
+            Ok(_) => println!("cargo::warning=\"Created index.html\""),
+            Err(err) => println!(
+                "cargo::error=\"Failed to create index.html withh error: {}\"",
+                err
+            ),
+        }
     }
 }
-
-// #[cfg(not(target_os = "emscripten"))]
-// fn main() {
-//     println!("cargo::warning=\"No need to generate index.html...\"");
-// }
