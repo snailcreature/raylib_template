@@ -6,350 +6,365 @@ fn main() {
         let crate_desc = env!("CARGO_PKG_DESCRIPTION");
 
         let out_dir = env::var("OUT_DIR").unwrap();
-        let out_filename = format_args!("{}/index.html", out_dir).to_string();
+        let out_filename = format_args!("{}/../../../index.html", out_dir).to_string();
         let out_filepath = Path::new(&out_filename);
-        println!("cargo::warning=\"Output index: {:?}\"", out_filepath);
         let index_html = format_args!("
-    <!doctype html>\
-    <html lang=\"en-us\">\
-    <head>\
-        <meta charset=\"utf-8\">\
-        <meta http-equiv=\"Content-Type\" content=\"text/html; charset=utf-8\">\
-\
-        <title>{crate_name}</title>\
-\
-        <meta name=\"title\" content=\"{crate_name}\">\
-        <meta name=\"description\" content=\"{crate_desc}\">\
-        <meta name=\"viewport\" content=\"width=device-width\">\
-\
-        <style>\
-            body {{\
-                font-family: arial;\
-                margin: 0;\
-                padding: none;\
-            }}\
-\
-            #header {{\
-                width: 100%;\
-                height: 80px;\
-                background-color: #888888;\
-            }}\
-\
-            /* note: raylib logo is embedded in the page as base64 png image */\
-            #logo {{\
-                width: 64px;\
-                height: 64px;\
-                float: left;\
-                position: relative;\
-                margin: 10px;\
-            }}\
-\
-            .emscripten {{\
-                padding-right: 0;\
-                margin-left: auto;\
-                margin-right: auto;\
-                display: block;\
-            }}\
-\
-            div.emscripten {{\
-                text-align: center;\
-            }}\
-\
-            div.emscripten_border {{\
-                border: 1px solid black;\
-            }}\
-\
-            /* note: canvas *must not* have any border or padding, or mouse coords will be wrong*/\
-            canvas.emscripten {{\
-                border: 0px none;\
-                background: black;\
-                width: 100%\
-            }}\
-\
-            .spinner {{\
-                height: 30px;\
-                width: 30px;\
-                margin: 0;\
-                margin-top: 20px;\
-                margin-left: 20px;\
-                display: inline-block;\
-                vertical-align: top;\
-                -webkit-animation: rotation .8s linear infinite;\
-                -moz-animation: rotation .8s linear infinite;\
-                -o-animation: rotation .8s linear infinite;\
-                animation: rotation 0.8s linear infinite;\
-                border-left: 5px solid black;\
-                border-right: 5px solid black;\
-                border-bottom: 5px solid black;\
-                border-top: 5px solid red;\
-                border-radius: 100%;\
-                background-color: rgb(245, 245, 245);\
-            }}\
-\
-            @-webkit-keyframes rotation {{\
-                from {{\
-                    -webkit-transform: rotate(0deg);\
-                }}\
-\
-                to {{\
-                    -webkit-transform: rotate(360deg);\
-                }}\
-            }}\
-\
-            @-moz-keyframes rotation {{\
-                from {{\
-                    -moz-transform: rotate(0deg);\
-                }}\
-\
-                to {{\
-                    -moz-transform: rotate(360deg);\
-                }}\
-            }}\
-\
-            @-o-keyframes rotation {{\
-                from {{\
-                    -o-transform: rotate(0deg);\
-                }}\
-\
-                to {{\
-                    -o-transform: rotate(360deg);\
-                }}\
-            }}\
-\
-            @keyframes rotation {{\
-                from {{\
-                    transform: rotate(0deg);\
-                }}\
-\
-                to {{\
-                    transform: rotate(360deg);\
-                }}\
-            }}
-\
-            #status {{\
-                display: inline-block;\
-                vertical-align: top;\
-                margin-top: 30px;\
-                margin-left: 20px;\
-                font-weight: bold;\
-                color: rgb(40, 40, 40);\
-            }}\
-\
-            #progress {{\
-                height: 0px;\
-                width: 0px;\
-            }}\
-\
-            #controls {{\
-                display: inline-block;\
-                float: right;\
-                vertical-align: top;\
-                margin-top: 15px;\
-                margin-right: 20px;\
-            }}\
-\
-            #output {{\
-                width: 100%;\
-                height: 140px;\
-                margin: 0 auto;\
-                margin-top: 10px;\
-                display: block;\
-                background-color: black;\
-                color: rgb(37, 174, 38);\
-                font-family: 'lucida console', monaco, monospace;\
-                outline: none;\
-            }}\
-\
-            input[type=button] {{\
-                background-color: lightgray;\
-                border: 4px solid darkgray;\
-                color: black;\
-                text-decoration: none;\
-                cursor: pointer;\
-                width: 140px;\
-                height: 50px;\
-            }}\
-\
-            input[type=button]:hover {{\
-                background-color: #f5f5f5ff;\
-                border-color: black;\
-            }}\
-        </style>\
-    </head>\
-\
-    <body>\
-        <div id=\"header\">\
-            <a id=\"logo\" href=\"https://www.raylib.com\"></a>\
-\
-            <div class=\"spinner\" id='spinner'></div>\
-            <div class=\"emscripten\" id=\"status\">Downloading...</div>\
-\
-            <span id='controls'>\
-                <span><input type=\"button\" value=\"🖵 FULLSCREEN\" onclick=\"Module.requestFullscreen(false, false)\"></span>\
-                <span><input type=\"button\" id=\"btn-audio\" value=\"🔇 SUSPEND\" onclick=\"toggleAudio()\"></span>\
-            </span>\
-\
-            <div class=\"emscripten\">\
-                <progress value=\"0\" max=\"100\" id=\"progress\" hidden></progress>\
-            </div>\
-        </div>\
-\
-        <div class=\"emscripten_border\">\
-            <canvas class=\"emscripten\" id=\"canvas\" oncontextmenu=\"event.preventDefault()\" tabindex=-1></canvas>\
-        </div>\
-\
-        <textarea id=\"output\" rows=\"8\"></textarea>\
-\
-        <script type='text/javascript'\
-            src=\"https://cdn.jsdelivr.net/gh/eligrey/FileSaver.js/dist/FileSaver.min.js\"> </script>\
-        <script type='text/javascript'>\
-            function saveFileFromMEMFSToDisk(memoryFSname, localFSname)     // This can be called by C/C++ code\
-            {{\
-                var isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);\
-                var data = FS.readFile(memoryFSname);\
-                var blob;\
-\
-                if (isSafari) blob = new Blob([data.buffer], {{ type: \"application/octet-stream\" }});\
-                else blob = new Blob([data.buffer], {{ type: \"application/octet-binary\" }});
-\
-                // NOTE: SaveAsDialog is a browser setting. For example, in Google Chrome,\
-                // in Settings/Advanced/Downloads section you have a setting:\
-                // 'Ask where to save each file before downloading' - which you can set\
-                // true/false.\
-                // If you enable this setting it would always ask you and bring the SaveAsDialog\
-                saveAs(blob, localFSname);\
-            }}\
-        </script>\
-        <script type='text/javascript'>\
-            var statusElement = document.querySelector('#status');\
-            var progressElement = document.querySelector('#progress');\
-            var spinnerElement = document.querySelector('#spinner');\
-            var Module = {{\
-                preRun: [],\
-                postRun: [],\
-                print: (function () {{\
-                    var element = document.querySelector('#output');\
-\
-                    if (element) element.value = '';    // Clear browser cache\
-\
-                    return function (text) {{\
-                        if (arguments.length > 1) text = Array.prototype.slice.call(arguments).join(' ');\
-                        // These replacements are necessary if you render to raw HTML\
-                        //text = text.replace(/&/g, \"&amp;\");\
-                        //text = text.replace(/</g, \"&lt;\");\
-                        //text = text.replace(/>/g, \"&gt;\");\
-                        //text = text.replace('\n', '<br>', 'g');\
-                        console.log(text);\
-\
-                        if (element) {{\
-                            element.value += text + \"\\n\";\
-                            element.scrollTop = element.scrollHeight; // focus on bottom\
-                        }}\
-                    }};\
-                }})(),\
-                printErr: function (text) {{\
-                    if (arguments.length > 1) text = Array.prototype.slice.call(arguments).join(' ');\
-\
-                    console.error(text);\
+    <!doctype html>\n
+    <html lang=\"en-GB\">\n
+    <head>\n
+        <meta charset=\"utf-8\">\n
+        <meta http-equiv=\"Content-Type\" content=\"text/html; charset=utf-8\">\n
+\n
+        <title>{crate_name}</title>\n
+\n
+        <meta name=\"title\" content=\"{crate_name}\">\n
+        <meta name=\"description\" content=\"{crate_desc}\">\n
+        <meta name=\"viewport\" content=\"width=device-width\">\n
+\n
+        <meta property=\"og:title\" content=\"{crate_name}\">\n
+        <meta property=\"og:description\" content=\"{crate_desc}\">\n
+\n
+        <meta property=\"twitter:card\" content=\"summary\">\n
+        <meta property=\"twitter:title\" content=\"{crate_name}\">\n
+        <meta property=\"twitter:descripion\" content=\"{crate_desc}\">\n
+\n
+        <link rel=\"shortcut icon\" href=\"https://www.raylib.com/favicon.ico\">
+\n
+        <style>\n
+            body {{\n
+                font-family: arial;\n
+                margin: 0;\n
+                padding: none;\n
+            }}\n
+\n
+            header {{\n
+                width: 100%;\n
+                height: 80px;\n
+                background-color: #888888;\n
+            }}\n
+\n
+            /* note: raylib logo is embedded in the page as base64 png image */\n
+            #logo {{\n
+                width: 64px;\n
+                height: 64px;\n
+                float: left;\n
+                position: relative;\n
+                margin: 10px;\n
+            }}\n
+\n
+            .emscripten {{\n
+                padding-right: 0;\n
+                margin-left: auto;\n
+                margin-right: auto;\n
+                display: block;\n
+            }}\n
+\n
+            div.emscripten {{\n
+                text-align: center;\n
+            }}\n
+\n
+            div.emscripten_border {{\n
+                border: 1px solid black;\n
+            }}\n
+\n
+            /* note: canvas *must not* have any border or padding, or mouse coords will be wrong*/\n
+            canvas.emscripten {{\n
+                border: 0px none;\n
+                background: black;\n
+                width: 100%\n
+            }}\n
+\n
+            .spinner {{\n
+                height: 30px;\n
+                width: 30px;\n
+                margin: 0;\n
+                margin-top: 20px;\n
+                margin-left: 20px;\n
+                display: inline-block;\n
+                vertical-align: top;\n
+                -webkit-animation: rotation .8s linear infinite;\n
+                -moz-animation: rotation .8s linear infinite;\n
+                -o-animation: rotation .8s linear infinite;\n
+                animation: rotation 0.8s linear infinite;\n
+                border-left: 5px solid black;\n
+                border-right: 5px solid black;\n
+                border-bottom: 5px solid black;\n
+                border-top: 5px solid red;\n
+                border-radius: 100%;\n
+                background-color: rgb(245, 245, 245);\n
+            }}\n
+\n
+            @-webkit-keyframes rotation {{\n
+                from {{\n
+                    -webkit-transform: rotate(0deg);\n
+                }}\n
+\n
+                to {{\n
+                    -webkit-transform: rotate(360deg);\n
+                }}\n
+            }}\n
+\n
+            @-moz-keyframes rotation {{\n
+                from {{\n
+                    -moz-transform: rotate(0deg);\n
+                }}\n
+\n
+                to {{\n
+                    -moz-transform: rotate(360deg);\n
+                }}\n
+            }}\n
+\n
+            @-o-keyframes rotation {{\n
+                from {{\n
+                    -o-transform: rotate(0deg);\n
+                }}\n
+\n
+                to {{\n
+                    -o-transform: rotate(360deg);\n
+                }}\n
+            }}\n
+\n
+            @keyframes rotation {{\n
+                from {{\n
+                    transform: rotate(0deg);\n
+                }}\n
+\n
+                to {{\n
+                    transform: rotate(360deg);\n
+                }}\n
+            }}\n
+\n
+            #status {{\n
+                display: inline-block;\n
+                vertical-align: top;\n
+                margin-top: 30px;\n
+                margin-left: 20px;\n
+                font-weight: bold;\n
+                color: rgb(40, 40, 40);\n
+            }}\n
+\n
+            #progress {{\n
+                height: 0px;\n
+                width: 0px;\n
+            }}\n
+\n
+            #controls {{\n
+                display: inline-block;\n
+                float: right;\n
+                vertical-align: top;\n
+                margin-top: 15px;\n
+                margin-right: 20px;\n
+            }}\n
+\n
+            #output {{\n
+                width: 100%;\n
+                height: 140px;\n
+                margin: 0 auto;\n
+                margin-top: 10px;\n
+                display: block;\n
+                background-color: black;\n
+                color: rgb(37, 174, 38);\n
+                font-family: 'lucida console', monaco, monospace;\n
+                outline: none;\n
+            }}\n
+\n
+            input[type=button] {{\n
+                background-color: lightgray;\n
+                border: 4px solid darkgray;\n
+                color: black;\n
+                text-decoration: none;\n
+                cursor: pointer;\n
+                width: 140px;\n
+                height: 50px;\n
+            }}\n
+\n
+            input[type=button]:hover {{\n
+                background-color: #f5f5f5ff;\n
+                border-color: black;\n
+            }}\n
+        </style>\n
+    </head>\n
+\n
+    <body>\n
+        <header id=\"header\">\n
+            <a id=\"logo\" href=\"https://www.raylib.com\"></a>\n
+\n
+            <div class=\"spinner\" id='spinner'></div>\n
+            <div class=\"emscripten\" id=\"status\">Downloading...</div>\n
+\n
+            <span id='controls'>\n
+                <span><input type=\"button\" value=\"🖵 FULLSCREEN\" onclick=\"Module.requestFullscreen(false, false)\"></span>\n
+                <span><input type=\"button\" id=\"btn-audio\" value=\"🔇 SUSPEND\" onclick=\"toggleAudio()\"></span>\n
+            </span>\n
+\n
+            <div class=\"emscripten\">\n
+                <progress value=\"0\" max=\"100\" id=\"progress\" hidden></progress>\n
+            </div>\n
+        </header>\n
+\n
+        <div class=\"emscripten_border\">\n
+            <canvas class=\"emscripten\" id=\"canvas\" oncontextmenu=\"event.preventDefault()\" tabindex=-1></canvas>\n
+        </div>\n
+\n
+        <textarea id=\"output\" rows=\"8\"></textarea>\n
+\n
+        <script type='text/javascript'\n
+            src=\"https://cdn.jsdelivr.net/gh/eligrey/FileSaver.js/dist/FileSaver.min.js\">\n
+        </script>\n
+        <script type='text/javascript'>\n
+            function saveFileFromMEMFSToDisk(memoryFSname, localFSname)     // This can be called by C/C++ code\n
+            {{\n
+                var isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);\n
+                var data = FS.readFile(memoryFSname);\n
+                var blob;\n
+\n
+                if (isSafari) blob = new Blob([data.buffer], {{ type: \"application/octet-stream\" }});\n
+                else blob = new Blob([data.buffer], {{ type: \"application/octet-binary\" }});n
+\n
+                /** NOTE: SaveAsDialog is a browser setting. For example, in Google Chrome,\n
+                / * in Settings/Advanced/Downloads section you have a setting:\n
+                / * 'Ask where to save each file before downloading' - which you can set\n
+                / * true/false.\n
+                / * If you enable this setting it would always ask you and bring the SaveAsDialog\n
+                / *saveAs(blob, localFSname);\n
+                 **/\n
+            }}\n
+        </script>\n
+        <script type='text/javascript'>\n
+            var statusElement = document.querySelector('#status');\n
+            var progressElement = document.querySelector('#progress');\n
+            var spinnerElement = document.querySelector('#spinner');\n
+            var Module = {{\n
+                preRun: [],\n
+                postRun: [],\n
+                print: (function () {{\n
+                    var element = document.querySelector('#output');\n
+\n
+                    if (element) element.value = '';    // Clear browser cache\n
+\n
+                    return function (text) {{\n
+                        if (arguments.length > 1) text = Array.prototype.slice.call(arguments).join(' ');\n
+                        /** These replacements are necessary if you render to raw HTML*/\n
+                        text = text.replace(/&/g, \"&amp;\");\n
+                        text = text.replace(/</g, \"&lt;\");\n
+                        text = text.replace(/>/g, \"&gt;\");\n
+                        text = text.replace('\\n', '<br>', 'g');\n
+                        console.log(text);\n
+\n
+                        if (element) {{\n
+                            element.value += text + \"\\n\";\n
+                            element.scrollTop = element.scrollHeight; /* focus on bottom */\n
+                        }}\n
+                    }};\n
+                }})(),\n
+                printErr: function (text) {{\n
+                    if (arguments.length > 1) text = Array.prototype.slice.call(arguments).join(' ');\n
+\n
+                    console.error(text);\n
                 }},\
                 canvas: (function () {{\
-                    var canvas = document.querySelector('#canvas');\
+                    var canvas = document.querySelector('#canvas');\n
 \
-                    // As a default initial behavior, pop up an alert when webgl context is lost.\
-                    // To make your application robust, you may want to override this behavior before shipping!\
-                    // See http://www.khronos.org/registry/webgl/specs/latest/1.0/#5.15.2\
-                    canvas.addEventListener(\"webglcontextlost\", function (e) {{ alert('WebGL context lost. You will need to reload the page.'); e.preventDefault(); }}, false);\
-\
-                    return canvas;\
-                }})(),\
-                setStatus: function (text) {{\
-                    if (!Module.setStatus.last) Module.setStatus.last = {{ time: Date.now(), text: '' }};\
-                    if (text === Module.setStatus.last.text) return;\
-\
-                    var m = text.match(/([^(]+)\\((\\d+(\\.\\d+)?)\\/(\\d+)\\)/);\
-                    var now = Date.now();\
-\
-                    if (m && now - Module.setStatus.last.time < 30) return; // If this is a progress update, skip it if too soon\
-\
-                    Module.setStatus.last.time = now;\
-                    Module.setStatus.last.text = text;\
-\
-                    if (m) {{\
-                        text = m[1];\
-                        progressElement.value = parseInt(m[2]) * 100;\
-                        progressElement.max = parseInt(m[4]) * 100;\
-                        progressElement.hidden = true;\
-                        spinnerElement.hidden = false;\
-                    }} else {{\
-                        progressElement.value = null;\
-                        progressElement.max = null;\
-                        progressElement.hidden = true;\
-                        if (!text) spinnerElement.style.display = 'none';\
-                    }}\
-\
-                    statusElement.innerHTML = text;\
-                }},\
-                totalDependencies: 0,\
-                monitorRunDependencies: function (left) {{\
-                    this.totalDependencies = Math.max(this.totalDependencies, left);\
-                    Module.setStatus(left ? 'Preparing... (' + (this.totalDependencies - left) + '/' + this.totalDependencies + ')' : 'All downloads complete.');\
-                }},\
-                //noInitialRun: true\
-            }};\
-\
-            Module.setStatus('Downloading...');\
-\
-            window.onerror = function () {{\
-                Module.setStatus('Exception thrown, see JavaScript console');\
-                spinnerElement.style.display = 'none';\
-                Module.setStatus = function (text) {{ if (text) Module.printErr('[post-exception status] ' + text); }};\
-            }};\
-        </script>\
-\
-        <!-- REF: https://developers.google.com/web/updates/2018/11/web-audio-autoplay -->\
-        <script type='text/javascript'>\
-            var audioBtn = document.querySelector('#btn-audio');\
-\
-            // An array of all contexts to resume on the page\
-            const audioContexList = [];\
-            (function () {{\
-                // A proxy object to intercept AudioContexts and \
-                // add them to the array for tracking and resuming later\
-                self.AudioContext = new Proxy(self.AudioContext, {{\
-                construct(target, args) {{\
-                        const result = new target(...args);\
-                        audioContexList.push(result);\
-                        if (result.state == \"suspended\") audioBtn.value = \"🔈 RESUME\";\
-                        return result;\
-                    }}\
-                }});\
-            }})();\
-\
-            function toggleAudio() {{\
-                var resumed = false;\
-                audioContexList.forEach(ctx => {{\
-                    if (ctx.state == \"suspended\") {{ ctx.resume(); resumed = true; }}\
-                    else if (ctx.state == \"running\") ctx.suspend();\
-                }});\
-\
-                if (resumed) audioBtn.value = \"🔇 SUSPEND\";\
-                else audioBtn.value = \"🔈 RESUME\";\
-            }}\
-        </script>\
-        <script>\
-            // // This is read and used by `site.js`\
-            // var Module = {{\
-            //     wasmBinaryFile: \"raylib_showcase.wasm\"\
-            // }}\
-        </script>\
-        <script src=\"{crate_name}.js\"></script>\
-    </body>\
-\
+                    /** As a default initial behavior, pop up an alert when webgl context is lost.\n
+                    / * To make your application robust, you may want to override this behavior before shipping!\n
+                    / * See http://www.khronos.org/registry/webgl/specs/latest/1.0/#5.15.2\n
+                     **/\n
+                    canvas.addEventListener(\"webglcontextlost\", function (e) {{ alert('WebGL context lost. You will need to reload the page.'); e.preventDefault(); }}, false);\n
+\n
+                    return canvas;\n
+                }})(),\n
+                setStatus: function (text) {{\n
+                    if (!Module.setStatus.last) Module.setStatus.last = {{ time: Date.now(), text: '' }};\n
+                    if (text === Module.setStatus.last.text) return;\n
+\n
+                    var m = text.match(/([^(]+)\\((\\d+(\\.\\d+)?)\\/(\\d+)\\)/);\n
+                    var now = Date.now();\n
+\n
+                    if (m && now - Module.setStatus.last.time < 30) return; // If this is a progress update, skip it if too soon\n
+\n
+                    Module.setStatus.last.time = now;\n
+                    Module.setStatus.last.text = text;\n
+\n
+                    if (m) {{\n
+                        text = m[1];\n
+                        progressElement.value = parseInt(m[2]) * 100;\n
+                        progressElement.max = parseInt(m[4]) * 100;\n
+                        progressElement.hidden = true;\n
+                        spinnerElement.hidden = false;\n
+                    }} else {{\n
+                        progressElement.value = null;\n
+                        progressElement.max = null;\n
+                        progressElement.hidden = true;\n
+                        if (!text) spinnerElement.style.display = 'none';\n
+                    }}\n
+\n
+                    statusElement.innerHTML = text;\n
+                }},\n
+                totalDependencies: 0,\n
+                monitorRunDependencies: function (left) {{\n
+                    this.totalDependencies = Math.max(this.totalDependencies, left);\n
+                    Module.setStatus(left ? 'Preparing... (' + (this.totalDependencies - left) + '/' + this.totalDependencies + ')' : 'All downloads complete.');\n
+                }},\n
+                //noInitialRun: true\n
+            }};\n
+\n
+            Module.setStatus('Downloading...');\n
+\n
+            window.onerror = function () {{\n
+                Module.setStatus('Exception thrown, see JavaScript console');\n
+                spinnerElement.style.display = 'none';\n
+                Module.setStatus = function (text) {{ if (text) Module.printErr('[post-exception status] ' + text); }};\n
+            }};\n
+        </script>\n
+\n
+        <!-- REF: https://developers.google.com/web/updates/2018/11/web-audio-autoplay -->\n
+        <script type='text/javascript'>\n
+            var audioBtn = document.querySelector('#btn-audio');\n
+\n
+            /* An array of all contexts to resume on the page */\n
+            const audioContexList = [];\n
+            (function () {{\n
+                /** A proxy object to intercept AudioContexts and \n
+                / * add them to the array for tracking and resuming later\n
+                 **/\n
+                self.AudioContext = new Proxy(self.AudioContext, {{\n
+                construct(target, args) {{\n
+                        const result = new target(...args);\n
+                        audioContexList.push(result);\n
+                        if (result.state == \"suspended\") audioBtn.value = \"🔈 RESUME\";\n
+                        return result;\n
+                    }}\n
+                }});\n
+            }})();\n
+\n
+            function toggleAudio() {{\n
+                var resumed = false;\n
+                audioContexList.forEach(ctx => {{\n
+                    if (ctx.state == \"suspended\") {{ ctx.resume(); resumed = true; }}\n
+                    else if (ctx.state == \"running\") ctx.suspend();\n
+                }});\n
+\n
+                if (resumed) audioBtn.value = \"🔇 SUSPEND\";\n
+                else audioBtn.value = \"🔈 RESUME\";\n
+            }}\n
+        </script>\n
+        <script>\n
+            /** // This is read and used by `site.js`\n
+            / * var Module = {{\n
+            / *     wasmBinaryFile: \"raylib_showcase.wasm\"\n
+            / * }}\n
+             **/\n
+        </script>\n
+        <script src=\"{crate_name}.js\"></script>\n
+    </body>\n
+\n
     </html>
         ").to_string();
 
         match fs::write(out_filepath, index_html) {
-            Ok(_) => println!("cargo::warning=\"Created index.html\""),
+            Ok(_) => println!(
+                "cargo::warning=\"Created index.html. Remember to copy the {crate_name}.data file from deps.\""
+            ),
             Err(err) => println!(
                 "cargo::error=\"Failed to create index.html withh error: {}\"",
                 err
