@@ -1,24 +1,27 @@
 //! An implementation of the Observer pattern.
 
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 
 /// An object that has its state observed.
-pub struct Subject<StateType> {
-    state: Arc<StateType>,
+pub struct Subject<StateType: Clone> {
+    state: Arc<RwLock<StateType>>,
     observers: Vec<Box<dyn Observer<StateType>>>,
 }
 
-impl<StateType> Subject<StateType> {
+impl<StateType: Clone> Subject<StateType> {
     pub fn new(state: StateType) -> Self {
         Self {
-            state: Arc::new(state),
+            state: Arc::new(RwLock::new(state)),
             observers: Vec::new(),
         }
     }
 
     /// Get the current value of the state.
-    pub fn state(&self) -> &StateType {
-        &self.state
+    pub fn state(&self) -> StateType {
+        self.state
+            .read()
+            .expect("Failed to read Subject")
+            .clone()
     }
 
     /// Attach an Observer to this Subject.
@@ -28,15 +31,14 @@ impl<StateType> Subject<StateType> {
 
     /// Update the state and notify the Observers.
     pub fn update_state(&mut self, state: StateType) -> () {
-        let old_state = Arc::get_mut(&mut self.state).unwrap();
-        *old_state = state;
+        self.state = Arc::new(RwLock::new(state));
         self.notify();
     }
 
     /// Notify Observers of new state.
     fn notify(&self) {
         for observer in &self.observers {
-            observer.update(&self.state);
+            observer.update(&self.state());
         }
     }
 }

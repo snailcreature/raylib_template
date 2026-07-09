@@ -87,6 +87,7 @@ mod tests {
 
     #[test]
     fn observe_test() {
+        #[derive(Debug, Clone, Copy)]
         struct TestSubject(i32);
 
         struct TestObserver {}
@@ -156,17 +157,20 @@ mod tests {
 
         let mut broker = EventBroker::new();
 
-        let mut test_handler = TestHandler::new(ModuleCtx::new("test", &mut broker));
+        let mut test_handler0 = TestHandler::new(ModuleCtx::new("test", &mut broker));
 
         broker.init();
 
-        let handle = test_handler.run();
+        let mut handles: Vec<_> = Vec::new();
+        handles.push(test_handler0.run());
 
         broker.publish(Event::new(
             "test".to_string(),
             Payload::new_post(TestEvent(50)),
         ));
 
-        handle.join().unwrap();
+        for handle in handles {
+            handle.join().unwrap()
+        }
     }
 }
