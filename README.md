@@ -10,6 +10,8 @@ And you will need Emscripten installed for web builds:
 
 `brew install emscripten`
 
+`brew install just`
+
 ## Inclusions
 
 This template includes a handful of data structures and programming patterns

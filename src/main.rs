@@ -22,6 +22,10 @@ fn main() {
         .vsync()
         .build();
 
+    rl.set_target_fps(60);
+
+    println!("raylib initialized!");
+
     let mut ball = Ball {
         position: Vector2 {
             x: SCREEN_WIDTH / 2.0,
@@ -32,15 +36,13 @@ fn main() {
         color: Color::BLUE,
     };
 
-    rl.set_target_fps(30);
-
-    let mut value: i32 = rl.get_random_value(Range {
-        start: -100,
-        end: 100,
-    });
+    let mut value: i32 = rl.get_random_value(-100..100);
     let mut frame_count: f32 = 0.0;
 
-    while !rl.window_should_close() {
+    println!("All set up!");
+
+    // while !rl.window_should_close() {
+    game_loop::run(rl, thread, 60, move |rl, thread| {
         /*  --- UPDATE --- */
         let dt = rl.get_frame_time();
         frame_count += dt;
@@ -51,6 +53,11 @@ fn main() {
                 end: 100,
             });
             frame_count -= 1.0;
+        }
+
+        #[cfg(not(target_os = "emscripten"))]
+        if rl.is_key_down(KEY_ESCAPE) {
+            rl.request_quit();
         }
 
         if rl.is_key_down(KEY_RIGHT) {
@@ -90,7 +97,8 @@ fn main() {
         draw_text_center(&mut d, "Hello, world!", 15, 20, Color::BLACK);
         draw_text_center(&mut d, format!("{}", value).as_str(), 30, 20, Color::BLUE);
         d.draw_circle_v(ball.position, ball.radius, ball.color);
-    }
+    });
+    // }
 }
 
 fn draw_text_center(d: &mut RaylibDrawHandle, text: &str, y: i32, font_size: i32, color: Color) {
