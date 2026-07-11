@@ -10,7 +10,12 @@ And you will need Emscripten installed for web builds:
 
 `brew install emscripten`
 
-`brew install just`
+Or...
+
+```bash
+brew install just
+just setup
+```
 
 ## Inclusions
 

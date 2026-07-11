@@ -8,12 +8,16 @@ setup:
             ;;
         freebsd*)
             pkg install raylib
+            echo "You will need to install emscripten[i]."
+            echo "[i]: https://emscripten.org/docs/getting_started/downloads"
             ;;
         cygwin | msys)
-            echo "    Please visit the Working on Windows[1] page on the raylib \
+            echo "Please visit the Working on Windows[1] page on the raylib \
             repository, or the raylib-quickstart repository[2]."
-            echo "    [1]: https://github.com/raysan5/raylib/wiki/Working-on-Windows"
-            echo "    [2]: https://github.com/raylib-extras/raylib-quickstart"
+            echo "You will need to install emscripten[3]"
+            echo "[1]: https://github.com/raysan5/raylib/wiki/Working-on-Windows"
+            echo "[2]: https://github.com/raylib-extras/raylib-quickstart"
+            echo "[3]: https://emscripten.org/docs/getting_started/downloads"
             ;;
         linux*)
             sudo apt install build-essential git
@@ -78,7 +82,11 @@ setup:
                 *)
                     echo "Unknown Linux distro: $ID. Could not install \
                     dependencies"
+                    exit 1
+                    ;;
             esac
+            echo "You will need to install emscripten[i]."
+            echo "[i]: https://emscripten.org/docs/getting_started/downloads"
             ;;
         *) 
             echo "Unknown OSTYPE: $OSTYPE. Could not set up."
