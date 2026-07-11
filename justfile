@@ -1,26 +1,37 @@
 ostype := `echo "$OSTYPE"`
 
+default:
+    @just --list
+
+# Format all rust code
 fmt:
     cargo fmt --all
 
+# Quickly format, add, and commit changes to git
 commit message: fmt
     git add -A
     git commit -m "{{ message }}"
 
+# Build for current system
 build profile="dev":
     cargo build --profile {{ profile }}
 
+# Run the dev profile for current system
 dev:
     cargo run --profile dev
 
-dev-web profile="dev": (build-web profile) (serve-web profile)
+# Build for web and serve it
+dev-web: (build-web "dev") (serve-web "dev")
 
+# Build for all supported targets
 [parallel]
 build-all profile="dev": (mac profile) (windows profile) (linux profile) (build-web profile)
 
+# Build for MacOS targets
 [parallel]
 mac profile="dev": (mac-x86 profile) (mac-arm profile)
 
+# Build for arm (M1, etc.) MacOS
 mac-arm profile="dev":
     #!/usr/bin/env bash
     if [[ {{ ostype }} == "darwin"* ]]; then
@@ -29,6 +40,7 @@ mac-arm profile="dev":
         echo "cross currently does not support cross-compilation to MacOS"
     fi
 
+# Build for x86_64 MacOS
 mac-x86 profile="dev":
     #!/usr/bin/env bash
     if [[ {{ ostype }} == "darwin"* ]]; then
@@ -37,24 +49,30 @@ mac-x86 profile="dev":
         echo "cross currently does not support cross-compilation to MacOS"
     fi
 
+# Build for Windows
 windows profile="dev":
     cross build --target x86_64-pc-windows-gnu --profile {{ profile }}
 
+# Build for linux
 linux profile="dev":
     cross build --target x86_64-unknown-linux-gnu --profile {{ profile }}
 
+# Build for web
 build-web profile="dev":
     cargo build --target wasm32-unknown-emscripten --profile web-{{ profile }}
 
+# Serve the most recent web build
 serve-web profile="dev":
     @# python3 -m http.server --directory ./target/wasm32-unknown-emscripten/web-release 8000
     emrun index.html --serve_root ./target/wasm32-unknown-emscripten/web-{{ profile }}/ --port 8000
 
+# Install required dependencies for raylib/Rust development
 setup: setup-emsdk setup-web setup-cross setup-platform
 
+# Install system-specific dependencies
 setup-platform:
     #!/usr/bin/env bash
-    echo "Installing raylib and platform-specific dependencies..."
+    echo "> Installing raylib and platform-specific dependencies..."
     case {{ ostype }} in
         darwin*)
             brew install raylib emscripten
@@ -63,10 +81,10 @@ setup-platform:
             pkg install raylib
             ;;
         cygwin | msys)
-            echo "Please visit the Working on Windows[1] page on the raylib \
+            echo "> Please visit the Working on Windows[1] page on the raylib \
             repository, or the raylib-quickstart repository[2]."
-            echo "[1]: https://github.com/raysan5/raylib/wiki/Working-on-Windows"
-            echo "[2]: https://github.com/raylib-extras/raylib-quickstart"
+            echo "> [1]: https://github.com/raysan5/raylib/wiki/Working-on-Windows"
+            echo "> [2]: https://github.com/raylib-extras/raylib-quickstart"
             exit 0
             ;;
         linux*)
@@ -130,36 +148,38 @@ setup-platform:
                         MesaLib-devel
                     ;;
                 *)
-                    echo "Unknown Linux distro: $ID. Could not install \
+                    echo "> Unknown Linux distro: $ID. Could not install \
                     dependencies"
                     exit 1
                     ;;
             esac
             ;;
         *) 
-            echo "Unknown OSTYPE: $OSTYPE. Could not set up."
+            echo "> Unknown OSTYPE: $OSTYPE. Could not set up."
             ;;
     esac
-    echo "Please check the raylib wiki[a] to ensure the correct dependencies \
+    echo "> Please check the raylib wiki[a] to ensure the correct dependencies \
     have been installed for your platform."
-    echo "[a]: https://github.com/raysan5/raylib/wiki"
+    echo "> [a]: https://github.com/raysan5/raylib/wiki"
 
+# Install and set up web dependencies
 setup-web:
     #!/usr/bin/env bash
-    echo "Installing target wasm32-unknown-emscripten..."
+    echo "> Installing target wasm32-unknown-emscripten..."
     rustup target add wasm32-unknown-emscripten
 
+# Setup cross and its dependencies
 setup-cross:
     #!/usr/bin/env bash
-    echo "Installing cross for cross-compilation..."
+    echo "> Installing cross for cross-compilation..."
     cargo install cross --git https://github.com/cross-rs/cross
 
-    echo "Setting up docker image for Linux cross-compilation..."
+    echo "> Setting up docker image for Linux cross-compilation..."
     rustup target add x86_64-unknown-linux-gnu
     docker build --file CrossLinux.Dockerfile -t raylib_rs_env .
 
 
-# Stolen lovingly from https://github.com/brettchalupa/sola-raylib
+# Setup emscripten. Stolen lovingly from https://github.com/brettchalupa/sola-raylib
 setup-emsdk:
     #!/usr/bin/env bash
     # Install emsdk so `just build-web` can produce wasm builds. Idempotent:
