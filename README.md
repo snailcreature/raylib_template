@@ -28,3 +28,4 @@ implemented for ease of use:
 3. [Quartermaster](/engine/quartermaster) - an asset manager with automatic
    memory management
 4. [Ringo](/engine/ringo) - a pseudorandom number generator
+5. [rlimgui](/engine/rlimgui) - DearIMGUI compatibility layer

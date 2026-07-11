@@ -47,7 +47,7 @@ build-web profile="dev":
     cargo build --target wasm32-unknown-emscripten --profile web-{{ profile }}
 
 serve-web profile="dev":
-    # python3 -m http.server --directory ./target/wasm32-unknown-emscripten/web-release 8000
+    @# python3 -m http.server --directory ./target/wasm32-unknown-emscripten/web-release 8000
     emrun index.html --serve_root ./target/wasm32-unknown-emscripten/web-{{ profile }}/ --port 8000
 
 setup: setup-emsdk setup-web setup-cross setup-platform

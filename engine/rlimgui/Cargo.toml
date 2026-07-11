@@ -1,0 +1,9 @@
+[package]
+name = "rlimgui"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+imgui = "0.12.0"
+imgui-sys = "0.12.0"
+raylib = { package = "sola-raylib", version = "6" }
