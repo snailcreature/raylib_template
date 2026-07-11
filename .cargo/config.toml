@@ -4,11 +4,14 @@ CXXFLAGS_wasm32_unknown_emscripten = "-fwasm-exceptions -sSUPPORT_LONGJMP=wasm"
 
 [target.wasm32-unknown-emscripten]
 rustflags = [
-    "-C", "link-arg=-Wall",
     "-C", "link-arg=-sMIN_WEBGL_VERSION=2",
     "-C", "link-arg=-sMAX_WEBGL_VERSION=2",
     "-C", "link-arg=-DPLATFORM_WEB",
+
+    # Comment out these lines when building for release
+    "-C", "link-arg=-Wall",
     "-C", "link-arg=-sGL_DEBUG",
+
     # raylib's web backend uses emscripten's bundled GLFW3 port.
     "-C", "link-arg=-sUSE_GLFW=3",
     # Let the wasm heap grow on demand.
