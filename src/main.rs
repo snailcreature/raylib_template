@@ -91,7 +91,7 @@ fn main() {
         }
 
         /* --- DRAW --- */
-        let mut d = rl.begin_drawing(&thread);
+        let mut d = rl.begin_drawing(thread);
 
         d.clear_background(Color::WHITE);
         draw_text_center(&mut d, "Hello, world!", 15, 20, Color::BLACK);

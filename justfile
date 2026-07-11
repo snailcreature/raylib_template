@@ -1,5 +1,12 @@
 ostype := `echo "$OSTYPE"`
 
+fmt:
+    cargo fmt --all
+
+commit message: fmt
+    git add -A
+    git commit -m "{{ message }}"
+
 build profile="release":
     cargo build --profile {{ profile }}
 
@@ -35,6 +42,7 @@ serve-web profile="dev":
 
 setup: setup-emsdk
     #!/usr/bin/env bash
+    rustup target add wasm32-unknown-emscripten
     case {{ ostype }} in
         darwin*)
             brew install raylib emscripten
@@ -43,7 +51,6 @@ setup: setup-emsdk
             pkg install raylib
             ;;
         cygwin | msys)
-            rustup target add wasm32-unknown-emscripten
             echo "Please visit the Working on Windows[1] page on the raylib \
             repository, or the raylib-quickstart repository[2]."
             echo "[1]: https://github.com/raysan5/raylib/wiki/Working-on-Windows"
@@ -121,7 +128,6 @@ setup: setup-emsdk
             echo "Unknown OSTYPE: $OSTYPE. Could not set up."
             ;;
     esac
-    rustup target add wasm32-unknown-emscripten
     echo "Please check the raylib wiki[a] to ensure the correct dependencies \
     have been installed for your platform."
     echo "[a]: https://github.com/raysan5/raylib/wiki"
