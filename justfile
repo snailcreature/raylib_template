@@ -7,7 +7,7 @@ commit message: fmt
     git add -A
     git commit -m "{{ message }}"
 
-build profile="release":
+build profile="dev":
     cargo build --profile {{ profile }}
 
 dev:
@@ -16,22 +16,32 @@ dev:
 dev-web profile="dev": (build-web profile) (serve-web profile)
 
 [parallel]
-build-all: mac windows linux build-web
+build-all profile="dev": (mac profile) (windows profile) (linux profile) (build-web profile)
 
 [parallel]
-mac: mac-x86 mac-arm
+mac profile="dev": (mac-x86 profile) (mac-arm profile)
 
-mac-arm:
-    cross build --target aarch64-apple-darwin
+mac-arm profile="dev":
+    #!/usr/bin/env bash
+    if [[ {{ ostype }} == "darwin"* ]]; then
+        cargo build --target aarch64-apple-darwin --profile {{ profile }}
+    else
+        echo "cross currently does not support cross-compilation to MacOS"
+    fi
 
-mac-x86:
-    cross build --target x86_64-apple-darwin
+mac-x86 profile="dev":
+    #!/usr/bin/env bash
+    if [[ {{ ostype }} == "darwin"* ]]; then
+        cargo build --target x86_64-apple-darwin --profile {{ profile }}
+    else
+        echo "cross currently does not support cross-compilation to MacOS"
+    fi
 
-windows:
-    cross build --target x86_64-pc-windows-msvc
+windows profile="dev":
+    cross build --target x86_64-pc-windows-gnu --profile {{ profile }}
 
-linux:
-    cross build --target x86_64-unknown-linux-gnu
+linux profile="dev":
+    cross build --target x86_64-unknown-linux-gnu --profile {{ profile }}
 
 build-web profile="dev":
     cargo build --target wasm32-unknown-emscripten --profile web-{{ profile }}
@@ -40,9 +50,11 @@ serve-web profile="dev":
     # python3 -m http.server --directory ./target/wasm32-unknown-emscripten/web-release 8000
     emrun index.html --serve_root ./target/wasm32-unknown-emscripten/web-{{ profile }}/ --port 8000
 
-setup: setup-emsdk
+setup: setup-emsdk setup-web setup-cross setup-platform
+
+setup-platform:
     #!/usr/bin/env bash
-    rustup target add wasm32-unknown-emscripten
+    echo "Installing raylib and platform-specific dependencies..."
     case {{ ostype }} in
         darwin*)
             brew install raylib emscripten
@@ -131,6 +143,21 @@ setup: setup-emsdk
     echo "Please check the raylib wiki[a] to ensure the correct dependencies \
     have been installed for your platform."
     echo "[a]: https://github.com/raysan5/raylib/wiki"
+
+setup-web:
+    #!/usr/bin/env bash
+    echo "Installing target wasm32-unknown-emscripten..."
+    rustup target add wasm32-unknown-emscripten
+
+setup-cross:
+    #!/usr/bin/env bash
+    echo "Installing cross for cross-compilation..."
+    cargo install cross --git https://github.com/cross-rs/cross
+
+    echo "Setting up docker image for Linux cross-compilation..."
+    rustup target add x86_64-unknown-linux-gnu
+    docker build --file CrossLinux.Dockerfile -t raylib_rs_env .
+
 
 # Stolen lovingly from https://github.com/brettchalupa/sola-raylib
 setup-emsdk:
