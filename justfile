@@ -3,6 +3,10 @@ package_name := `echo $(cargo metadata --no-deps --no-default-features \
     --format-version 1 \
     | python3 -c "import sys, json; \
     print(json.load(sys.stdin)['packages'][0]['name'])")`
+package_version := `echo $(cargo metadata --no-deps --no-default-features \
+    --format-version 1 \
+    | python3 -c "import sys, json; \
+    print(json.load(sys.stdin)['packages'][0]['version'])")`
 
 set default-list := true
 
@@ -35,7 +39,7 @@ build-all profile="dev": (mac profile) (windows profile) (linux profile) (build-
 mac profile="dev": (mac-x86 profile) (mac-arm profile)
 
 # Build for arm (M1, etc.) MacOS
-mac-arm profile="dev":
+mac-arm profile="dev": mac-guard
     #!/usr/bin/env bash
     if [[ {{ ostype }} == "darwin"* ]]; then
         cargo build --target aarch64-apple-darwin --profile {{ profile }}
@@ -44,7 +48,7 @@ mac-arm profile="dev":
     fi
 
 # Build for x86_64 MacOS
-mac-x86 profile="dev":
+mac-x86 profile="dev": mac-guard
     #!/usr/bin/env bash
     if [[ {{ ostype }} == "darwin"* ]]; then
         cargo build --target x86_64-apple-darwin --profile {{ profile }}
@@ -75,38 +79,80 @@ serve-web profile="dev":
     emrun index.html --serve_root ./target/wasm32-unknown-emscripten/web-{{ profile }}/ --port 8000
 
 # Build and bundle specifically for Itch.io web player
-bundle-itch: (build-web "release")
+bundle-itch: (build-web "release") (dist-guard "itch")
     #!/usr/bin/env bash
-    echo "Ensuring ./dist exists..."
-    if [ ! -d "./dist" ]; then
-        mkdir ./dist
-    fi
-
-    echo "Ensuring ./dist/itch exists and is clear..."
-    if [ -d "./dist/itch" ]; then
-        rm -rf ./dist/itch/*
-    else
-        mkdir ./dist/itch
-    fi
-
     echo "Moving build result..."
     mkdir ./dist/itch/build
     cp ./target/wasm32-unknown-emscripten/web-release/index.html \
     ./dist/itch/build/index.html
     cp ./target/wasm32-unknown-emscripten/web-release/{{ package_name }}.wasm \
-    ./dist/itch/build/{{ package_name }}.wasm
+        ./dist/itch/build/{{ package_name }}.wasm
     cp ./target/wasm32-unknown-emscripten/web-release/{{ package_name }}.js \
-    ./dist/itch/build/{{ package_name }}.js
+        ./dist/itch/build/{{ package_name }}.js
     cp ./target/wasm32-unknown-emscripten/web-release/{{ package_name }}.data \
-    ./dist/itch/build/{{ package_name }}.data
+        ./dist/itch/build/{{ package_name }}.data
     cp ./static/favicon.ico ./dist/itch/build/favicon.ico
 
     echo "Zipping it all up..."
-    cd ./dist/itch
+    pushd ./dist/itch
     zip {{ package_name }}-itch.zip build/*
-    cd ../../
+    popd
 
     echo "Bundled for Itch.io!"
+
+# [WIP] Bundle build product into a *.app
+bundle-mac-x86: mac-guard (mac-x86 "release") (dist-guard "mac-x86")
+    #!/usr/bin/env bash
+    echo "Moving build result..."
+    mkdir ./dist/mac-x86/build
+    cp ./target/x86_64-apple-darwin/release/{{ package_name }} \
+        ./dist/mac-x86/build
+
+    echo "Moving assets..."
+    mkdir ./dist/mac-x85/build/assets
+    cp -r ./assets ./dist/mac-x86/build/assets
+    
+    pushd ./dist/mac-x86
+    otool -L ./build/{{ package_name }}
+
+    mkdir {{ package_name }}.app/
+    mkdir {{ package_name }}.app/Contents
+    mkdir {{ package_name }}.app/Contents/MacOS
+    mkdir {{ package_name }}.app/Contents/Resources
+    mkdir {{ package_name }}.app/Contents/Resources/Data
+
+    echo "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+    <!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+    <plist version=\"1.0\">
+    <dict>
+        <key>CFBundleName</key>
+        <string>{{ package_name }}</string>
+        <key>CFBundleDisplayName</key>
+        <string>{{ package_name }}</string>
+        <key>CFBundleExecutable</key>
+        <string>{{ package_name }}</string>
+        <key>CFBundleDevelopmentRegion</key>
+        <string>en-GB</string>
+        <key>CFBundleInfoDictionaryVersion</key>
+        <string>6.0</string>
+        <key>CFBundleVersion</key>
+        <string>{{ package_version }}</string>
+        <key>CFBundleIdentifier</key>
+        <string>codes.snail.{{ package_name }}</string>
+        <key>CFBundlePackageType</key>
+        <string>APPL</string>
+        <key>CSResourcesFileMapped</key>
+        <true/>
+    </dict>
+    </plist>" > {{ package_name }}.app/Contents/Info.plist
+
+    mv ./build/{{ package_name }} {{ package_name }}.app/Contents/MacOS
+    mv ./build/assets {{ package_name }}.app/Contents/Resources/Data
+
+    codesign -f -s "SnailCreature" {{ package_name }}.app --deep
+    popd
+
+    echo "Bundled for MacOS-x86_64!"
 
 
 # Install required dependencies for raylib/Rust development
@@ -270,7 +316,7 @@ setup-emsdk:
 
         source $EMSDK_DIR/emsdk_env.sh
 
-    Add that to your shell rc to persist it. Or don't: \`just build-web\` and
+    Add that to your shell rc to persist it. Or don\'t: \`just build-web\` and
     \`just serve-web\` auto-source emsdk_env.sh from the default install path.
 
     Then:
@@ -279,3 +325,24 @@ setup-emsdk:
         just serve-web                  # http://localhost:8000
 
     EOF
+
+mac-guard:
+    #!/usr/bin/env bash
+    if [[ ! {{ ostype }} == "darwin"* ]]; then
+        echo "This is not a MacOS system."
+        exit 1
+    fi
+
+dist-guard platform:
+    #!/usr/bin/env bash
+    echo "Ensuring ./dist exists..."
+    if [ ! -d "./dist" ]; then
+        mkdir ./dist
+    fi
+
+    echo "Ensuring ./dist/{{ platform }} exists and is clear..."
+    if [ -d "./dist/{{ platform }}" ]; then
+        rm -rf ./dist/{{ platform }}/*
+    else
+        mkdir ./dist/{{ platform }}
+    fi
