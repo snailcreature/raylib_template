@@ -17,6 +17,8 @@ brew install just
 just setup
 ```
 
+[just](https://just.systems/man/en/)
+
 ## Inclusions
 
 This template includes a handful of data structures and programming patterns
