@@ -37,10 +37,24 @@ fn main() {
     let mut value: i32 = rl.get_random_value(-100..100);
     let mut frame_count: f32 = 0.0;
 
+    let cow = Image::load_image("assets/images/cow.png").expect("Failed to load image of cow");
+    let _ = rl
+        .load_texture(&thread, "assets/images/cow.png")
+        .expect("Failed to load cow texture");
+    let cow_tex = rl
+        .load_texture_from_image(&thread, &cow)
+        .expect("Failed to load texture from image");
+
+    let audio = raylib::core::audio::RaylibAudio::init_audio_device().unwrap();
+    let music = audio
+        .new_music("assets/sounds/Night in Venice.mp3")
+        .unwrap();
+    music.play_stream();
+
     println!("All set up!");
 
-    // while !rl.window_should_close() {
-    game_loop::run(rl, thread, 60, move |rl, thread| {
+    while !rl.window_should_close() {
+        // game_loop::run(rl, thread, 60, move |rl, thread| {
         /*  --- UPDATE --- */
         let dt = rl.get_frame_time();
         frame_count += dt;
@@ -88,15 +102,18 @@ fn main() {
             }
         }
 
+        music.update_stream();
+
         /* --- DRAW --- */
-        let mut d = rl.begin_drawing(thread);
+        let mut d = rl.begin_drawing(&thread);
 
         d.clear_background(Color::WHITE);
+        d.draw_texture(&cow_tex, 0, 0, Color::WHITE);
         draw_text_center(&mut d, "Hello, world!", 15, 20, Color::BLACK);
         draw_text_center(&mut d, format!("{}", value).as_str(), 30, 20, Color::BLUE);
         d.draw_circle_v(ball.position, ball.radius, ball.color);
-    });
-    // }
+        // });
+    }
 }
 
 fn draw_text_center(d: &mut RaylibDrawHandle, text: &str, y: i32, font_size: i32, color: Color) {
