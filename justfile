@@ -66,6 +66,9 @@ build-web profile="dev":
     @echo "Copying {{ package_name }}.data..."
     @cp ./target/wasm32-unknown-emscripten/web-{{ profile }}/deps/{{ package_name }}.data \
     ./target/wasm32-unknown-emscripten/web-{{ profile }}/{{ package_name }}.data
+    @echo "Copying favicon.ico..."
+    @cp ./static/favicon.ico ./target/wasm32-unknown-emscripten/web-\
+        {{ profile}}/favicon.ico
 
 # Serve the most recent web build
 serve-web profile="dev":
@@ -96,6 +99,7 @@ bundle-itch: (build-web "release")
     ./dist/itch/build/{{ package_name }}.js
     cp ./target/wasm32-unknown-emscripten/web-release/{{ package_name }}.data \
     ./dist/itch/build/{{ package_name }}.data
+    cp ./static/favicon.ico ./dist/itch/build/favicon.ico
 
     echo "Zipping it all up..."
     cd ./dist/itch

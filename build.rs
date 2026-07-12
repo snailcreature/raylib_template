@@ -27,7 +27,7 @@ fn main() {
             <meta property=\"twitter:title\" content=\"{crate_name}\">\n
             <meta property=\"twitter:descripion\" content=\"{crate_desc}\">\n
 
-            <link rel=\"shortcut icon\" href=\"https://www.raylib.com/favicon.ico\">
+            <link rel=\"shortcut icon\" href=\"/favicon.ico\">
             
             <style>
                   html, body {{
