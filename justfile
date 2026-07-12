@@ -1,7 +1,10 @@
 ostype := `echo "$OSTYPE"`
+package_name := `echo $(cargo metadata --no-deps --no-default-features \
+    --format-version 1 \
+    | python3 -c "import sys, json; \
+    print(json.load(sys.stdin)['packages'][0]['name'])")`
 
-default:
-    @just --list
+set default-list := true
 
 # Format all rust code
 fmt:
@@ -60,14 +63,51 @@ linux profile="dev":
 # Build for web
 build-web profile="dev":
     cargo build --target wasm32-unknown-emscripten --profile web-{{ profile }}
+    @echo "Copying {{ package_name }}.data..."
+    @cp ./target/wasm32-unknown-emscripten/web-{{ profile }}/deps/{{ package_name }}.data \
+    ./target/wasm32-unknown-emscripten/web-{{ profile }}/{{ package_name }}.data
 
 # Serve the most recent web build
 serve-web profile="dev":
-    @# python3 -m http.server --directory ./target/wasm32-unknown-emscripten/web-release 8000
     emrun index.html --serve_root ./target/wasm32-unknown-emscripten/web-{{ profile }}/ --port 8000
+
+# Build and bundle specifically for Itch.io web player
+bundle-itch: (build-web "release")
+    #!/usr/bin/env bash
+    echo "Ensuring ./dist exists..."
+    if [ ! -d "./dist" ]; then
+        mkdir ./dist
+    fi
+
+    echo "Ensuring ./dist/itch exists and is clear..."
+    if [ -d "./dist/itch" ]; then
+        rm -rf ./dist/itch/*
+    else
+        mkdir ./dist/itch
+    fi
+
+    echo "Moving build result..."
+    mkdir ./dist/itch/build
+    cp ./target/wasm32-unknown-emscripten/web-release/index.html \
+    ./dist/itch/build/index.html
+    cp ./target/wasm32-unknown-emscripten/web-release/{{ package_name }}.wasm \
+    ./dist/itch/build/{{ package_name }}.wasm
+    cp ./target/wasm32-unknown-emscripten/web-release/{{ package_name }}.js \
+    ./dist/itch/build/{{ package_name }}.js
+    cp ./target/wasm32-unknown-emscripten/web-release/{{ package_name }}.data \
+    ./dist/itch/build/{{ package_name }}.data
+
+    echo "Zipping it all up..."
+    cd ./dist/itch
+    zip {{ package_name }}-itch.zip build/*
+    cd ../../
+
+    echo "Bundled for Itch.io!"
+
 
 # Install required dependencies for raylib/Rust development
 setup: setup-emsdk setup-web setup-cross setup-platform
+    mkdir ./dist
 
 # Install system-specific dependencies
 setup-platform:

@@ -28,6 +28,7 @@ rustflags = [
     # raylib's image and audio loaders reach `fopen` through macros that
     # emcc's tree-shaker sometimes misses. Force the FS layer in.
     "-C", "link-arg=-sFORCE_FILESYSTEM=1",
+    "-C", "link-arg=--preload-file", "-C", "link-arg=assets@/assets",
     # Match the wasm-EH ABI rustc 1.93+ emits. Without this you hit
     # `__cxa_find_matching_catch_*` link errors.
     "-C", "link-arg=-sSUPPORT_LONGJMP=wasm",
