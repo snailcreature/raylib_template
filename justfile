@@ -100,6 +100,22 @@ bundle-itch: (build-web "release") (dist-guard "itch")
 
     echo "Bundled for Itch.io!"
 
+# Build and bundle for standalone web hosting
+bundle-web: (build-web "release") (dist-guard "web")
+    #!/usr/bin/env bash
+    echo "Moving build result..."
+    cp ./target/wasm32-unknown-emscripten/web-release/index.html \
+    ./dist/web/index.html
+    cp ./target/wasm32-unknown-emscripten/web-release/{{ package_name }}.wasm \
+        ./dist/web/{{ package_name }}.wasm
+    cp ./target/wasm32-unknown-emscripten/web-release/{{ package_name }}.js \
+        ./dist/web/{{ package_name }}.js
+    cp ./target/wasm32-unknown-emscripten/web-release/{{ package_name }}.data \
+        ./dist/web/{{ package_name }}.data
+    cp ./static/favicon.ico ./dist/web/favicon.ico
+
+    echo "Bundled for web!"
+
 # Create bundles for Apple Intel and Apple Silicon computers
 [parallel]
 bundle-mac-all: bundle-mac-x86 bundle-mac-aarch64
