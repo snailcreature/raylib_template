@@ -213,7 +213,6 @@ check-deps:
 
 # Install required dependencies for raylib/Rust development
 setup: setup-emsdk setup-web setup-cross setup-platform
-    mkdir ./dist
 
 # Install system-specific dependencies
 [private]
@@ -328,7 +327,10 @@ setup-cross:
 
     echo "> Setting up docker image for Linux cross-compilation..."
     rustup target add x86_64-unknown-linux-gnu
-    docker build --file CrossLinux.Dockerfile -t raylib_rs_env .
+    docker build --file CrossLinux.Dockerfile -t raylib_rs_lin_env .
+
+    echo "> Setting up docker image for Windows cross-compilation..."
+    docker build --file CrossWindows.Dockerfile -t raylib_rs_win_env .
 
 
 # Setup emscripten. Stolen lovingly from https://github.com/brettchalupa/sola-raylib

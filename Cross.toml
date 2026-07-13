@@ -1,2 +1,5 @@
 [target.x86_64-unknown-linux-gnu]
-image = "raylib_rs_env"
+image = "raylib_rs_lin_env"
+
+[target.x86_64-pc-windows-gnu]
+image = "raylib_rs_win_env"
