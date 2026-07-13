@@ -103,23 +103,27 @@ bundle-itch: (build-web "release") (dist-guard "itch")
 # [WIP] Bundle build product into a *.app
 bundle-mac-x86: mac-guard (mac-x86 "release") (dist-guard "mac-x86")
     #!/usr/bin/env bash
-    echo "Moving build result..."
+    echo "> Moving build result..."
     mkdir ./dist/mac-x86/build
     cp ./target/x86_64-apple-darwin/release/{{ package_name }} \
         ./dist/mac-x86/build
 
-    echo "Moving assets..."
-    mkdir ./dist/mac-x85/build/assets
-    cp -r ./assets ./dist/mac-x86/build/assets
+    echo "> Moving assets..."
+    mkdir ./dist/mac-x86/build/assets
+    cp -r ./assets ./dist/mac-x86/build/
     
     pushd ./dist/mac-x86
     otool -L ./build/{{ package_name }}
 
+    echo "> Assembling bundle..."
     mkdir {{ package_name }}.app/
     mkdir {{ package_name }}.app/Contents
     mkdir {{ package_name }}.app/Contents/MacOS
     mkdir {{ package_name }}.app/Contents/Resources
     mkdir {{ package_name }}.app/Contents/Resources/Data
+
+    /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/LaunchServices.framework/Versions/A/Support/lsregister\
+         -f {{ package_name }}.app
 
     echo "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
     <!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
@@ -147,12 +151,13 @@ bundle-mac-x86: mac-guard (mac-x86 "release") (dist-guard "mac-x86")
     </plist>" > {{ package_name }}.app/Contents/Info.plist
 
     mv ./build/{{ package_name }} {{ package_name }}.app/Contents/MacOS
-    mv ./build/assets {{ package_name }}.app/Contents/Resources/Data
+    mv ./build/assets {{ package_name }}.app/Contents/Resources
 
+    echo "> Signing bundle..."
     codesign -f -s "SnailCreature" {{ package_name }}.app --deep
     popd
 
-    echo "Bundled for MacOS-x86_64!"
+    echo "> Bundled for MacOS-x86_64!"
 
 
 # Install required dependencies for raylib/Rust development

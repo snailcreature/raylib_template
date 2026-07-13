@@ -6,6 +6,7 @@ build = "build.rs"
 
 [dependencies]
 raylib = { package = "sola-raylib", version = "6.2" }
+platform_compat = { path = "./engine/platform_compat" }
 
 [target.wasm32-unknown-emscripten.dependencies]
 
@@ -26,11 +27,16 @@ opt-level = 3
 [profile.release]
 codegen-units = 1
 lto = "thin"
+strip = "debuginfo"
+opt-level = 3
+debug-assertions = false
+
+[profile.release.package."*"]
+debug-assertions = false
 
 [profile.web-release]
 inherits = "release"
 opt-level = "s"
-strip = "debuginfo"
 
 [profile.web-dev]
 inherits = "web-release"

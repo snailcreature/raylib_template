@@ -1,5 +1,6 @@
 use std::ops::Range;
 
+use platform_compat::ppath;
 use raylib::consts::{KeyboardKey::*, MouseButton::*};
 use raylib::prelude::*;
 
@@ -37,9 +38,10 @@ fn main() {
     let mut value: i32 = rl.get_random_value(-100..100);
     let mut frame_count: f32 = 0.0;
 
-    let cow = Image::load_image("assets/images/cow.png").expect("Failed to load image of cow");
+    let cow =
+        Image::load_image(&ppath!("assets/images/cow.png")).expect("Failed to load image of cow");
     let _ = rl
-        .load_texture(&thread, "assets/images/cow.png")
+        .load_texture(&thread, &ppath!("assets/images/cow.png"))
         .expect("Failed to load cow texture");
     let cow_tex = rl
         .load_texture_from_image(&thread, &cow)
@@ -47,7 +49,7 @@ fn main() {
 
     let audio = raylib::core::audio::RaylibAudio::init_audio_device().unwrap();
     let music = audio
-        .new_music("assets/sounds/Night in Venice.mp3")
+        .new_music(&ppath!("assets/sounds/Night in Venice.mp3"))
         .unwrap();
     music.play_stream();
 
