@@ -100,30 +100,42 @@ bundle-itch: (build-web "release") (dist-guard "itch")
 
     echo "Bundled for Itch.io!"
 
-# [WIP] Bundle build product into a *.app
-bundle-mac-x86: mac-guard (mac-x86 "release") (dist-guard "mac-x86")
+# Create bundles for Apple Intel and Apple Silicon computers
+[parallel]
+bundle-mac-all: bundle-mac-x86 bundle-mac-aarch64
+
+# Bundle build product into a *.app for x86_64 Apple Intel computers
+bundle-mac-x86: mac-guard (mac-x86 "release") (dist-guard "mac-x86_64")\
+    (bundle-mac "x86_64")
+
+# Bundle build product into a *.app for Apple Silicon computers
+bundle-mac-aarch64: mac-guard (mac-arm "release") (dist-guard "mac-aarch64")\
+    (bundle-mac "aarch64")
+
+# Bundle Mac build product into *.app for either "x86_64" or "aarch64"
+bundle-mac arch:
     #!/usr/bin/env bash
     echo "> Moving build result..."
-    mkdir ./dist/mac-x86/build
-    cp ./target/x86_64-apple-darwin/release/{{ package_name }} \
-        ./dist/mac-x86/build
+    mkdir ./dist/mac-{{ arch }}/build
+    cp ./target/{{ arch }}-apple-darwin/release/{{ package_name }} \
+        ./dist/mac-{{ arch }}/build
 
     echo "> Moving assets..."
-    mkdir ./dist/mac-x86/build/assets
-    cp -r ./assets ./dist/mac-x86/build/
+    mkdir ./dist/mac-{{ arch }}/build/assets
+    cp -r ./assets ./dist/mac-{{ arch }}/build/
     
-    pushd ./dist/mac-x86
+    pushd ./dist/mac-{{ arch }}
     otool -L ./build/{{ package_name }}
 
     echo "> Assembling bundle..."
-    mkdir {{ package_name }}.app/
-    mkdir {{ package_name }}.app/Contents
-    mkdir {{ package_name }}.app/Contents/MacOS
-    mkdir {{ package_name }}.app/Contents/Resources
-    mkdir {{ package_name }}.app/Contents/Resources/Data
+    mkdir {{ package_name }}_{{ arch }}.app/
+    mkdir {{ package_name }}_{{ arch }}.app/Contents
+    mkdir {{ package_name }}_{{ arch }}.app/Contents/MacOS
+    mkdir {{ package_name }}_{{ arch }}.app/Contents/Resources
+    mkdir {{ package_name }}_{{ arch }}.app/Contents/Resources/Data
 
     /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/LaunchServices.framework/Versions/A/Support/lsregister\
-         -f {{ package_name }}.app
+         -f {{ package_name }}_{{ arch }}.app
 
     echo "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
     <!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
@@ -148,16 +160,16 @@ bundle-mac-x86: mac-guard (mac-x86 "release") (dist-guard "mac-x86")
         <key>CSResourcesFileMapped</key>
         <true/>
     </dict>
-    </plist>" > {{ package_name }}.app/Contents/Info.plist
+    </plist>" > {{ package_name }}_{{ arch }}.app/Contents/Info.plist
 
-    mv ./build/{{ package_name }} {{ package_name }}.app/Contents/MacOS
-    mv ./build/assets {{ package_name }}.app/Contents/Resources
+    mv ./build/{{ package_name }} {{ package_name }}_{{ arch }}.app/Contents/MacOS
+    mv ./build/assets {{ package_name }}_{{ arch }}.app/Contents/Resources
 
     echo "> Signing bundle..."
-    codesign -f -s "SnailCreature" {{ package_name }}.app --deep
+    codesign -f -s "SnailCreature" {{ package_name }}_{{ arch }}.app --deep
     popd
 
-    echo "> Bundled for MacOS-x86_64!"
+    echo "> Bundled for MacOS-{{ arch }}!"
 
 
 # Install required dependencies for raylib/Rust development

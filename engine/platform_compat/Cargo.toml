@@ -3,5 +3,5 @@ name = "platform_compat"
 version = "0.1.0"
 edition = "2024"
 
-[dependencies]
+[target.'cfg(target_os = "macos")'.dependencies]
 core-foundation = "0.10.1"
