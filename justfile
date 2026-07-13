@@ -115,6 +115,7 @@ bundle-mac-aarch64: mac-guard (mac-arm "release") (dist-guard "mac-aarch64")\
 # Bundle Mac build product into *.app for either "x86_64" or "aarch64"
 bundle-mac arch:
     #!/usr/bin/env bash
+    set -euo pipefail
     echo "> Moving build result..."
     mkdir ./dist/mac-{{ arch }}/build
     cp ./target/{{ arch }}-apple-darwin/release/{{ package_name }} \
@@ -125,7 +126,7 @@ bundle-mac arch:
     cp -r ./assets ./dist/mac-{{ arch }}/build/
     
     pushd ./dist/mac-{{ arch }}
-    otool -L ./build/{{ package_name }}
+    otool -L ./build/{{ package_name }} | just ../../check-deps
 
     echo "> Assembling bundle..."
     mkdir {{ package_name }}_{{ arch }}.app/
@@ -134,6 +135,7 @@ bundle-mac arch:
     mkdir {{ package_name }}_{{ arch }}.app/Contents/Resources
     mkdir {{ package_name }}_{{ arch }}.app/Contents/Resources/Data
 
+    echo "> Clearing system cache..."
     /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/LaunchServices.framework/Versions/A/Support/lsregister\
          -f {{ package_name }}_{{ arch }}.app
 
@@ -170,6 +172,23 @@ bundle-mac arch:
     popd
 
     echo "> Bundled for MacOS-{{ arch }}!"
+
+# Check that the Mac target binary doesn't have unbundled dependencies
+check-deps:
+    #!/usr/bin/env python3
+    import sys
+    print('> Checking deps...')
+    lines = sys.stdin.readlines()
+    for line in lines:
+        i = line.strip()
+        ok = not i.startswith('/usr/lib/')\
+            or not i.startswith('/System/Library/')
+        if not ok:
+            raise Exception(f'Non-OS dependency: {i}')
+
+    print(''.join(lines))
+    print('> Deps ok!')
+
 
 
 # Install required dependencies for raylib/Rust development
