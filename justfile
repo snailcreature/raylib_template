@@ -20,6 +20,7 @@ commit message: fmt
     git commit -m "{{ message }}"
 
 # Build for current system
+[arg('profile', pattern='dev|release')]
 build profile="dev":
     cargo build --profile {{ profile }}
 
@@ -32,39 +33,36 @@ dev-web: (build-web "dev") (serve-web "dev")
 
 # Build for all supported targets
 [parallel]
+[arg('profile', pattern='dev|release')]
 build-all profile="dev": (mac profile) (windows profile) (linux profile) (build-web profile)
 
 # Build for MacOS targets
 [parallel]
+[arg('profile', pattern='dev|release')]
 mac profile="dev": (mac-x86 profile) (mac-arm profile)
 
 # Build for arm (M1, etc.) MacOS
+[arg('profile', pattern='dev|release')]
 mac-arm profile="dev": mac-guard
-    #!/usr/bin/env bash
-    if [[ {{ ostype }} == "darwin"* ]]; then
-        cargo build --target aarch64-apple-darwin --profile {{ profile }}
-    else
-        echo "cross currently does not support cross-compilation to MacOS"
-    fi
+    cargo build --target aarch64-apple-darwin --profile {{ profile }}
 
 # Build for x86_64 MacOS
+[arg('profile', pattern='dev|release')]
 mac-x86 profile="dev": mac-guard
-    #!/usr/bin/env bash
-    if [[ {{ ostype }} == "darwin"* ]]; then
-        cargo build --target x86_64-apple-darwin --profile {{ profile }}
-    else
-        echo "cross currently does not support cross-compilation to MacOS"
-    fi
+    cargo build --target x86_64-apple-darwin --profile {{ profile }}
 
 # Build for Windows
+[arg('profile', pattern='dev|release')]
 windows profile="dev":
     cross build --target x86_64-pc-windows-gnu --profile {{ profile }}
 
 # Build for linux
+[arg('profile', pattern='dev|release')]
 linux profile="dev":
     cross build --target x86_64-unknown-linux-gnu --profile {{ profile }}
 
 # Build for web
+[arg('profile', pattern='dev|release')]
 build-web profile="dev":
     cargo build --target wasm32-unknown-emscripten --profile web-{{ profile }}
     @echo "Copying {{ package_name }}.data..."
@@ -75,12 +73,14 @@ build-web profile="dev":
         {{ profile}}/favicon.ico
 
 # Serve the most recent web build
+[arg('profile', pattern='dev|release')]
 serve-web profile="dev":
     emrun index.html --serve_root ./target/wasm32-unknown-emscripten/web-{{ profile }}/ --port 8000
 
 # Build and bundle specifically for Itch.io web player
 bundle-itch: (build-web "release") (dist-guard "itch")
     #!/usr/bin/env bash
+    set -euo pipefail
     echo "Moving build result..."
     mkdir ./dist/itch/build
     cp ./target/wasm32-unknown-emscripten/web-release/index.html \
@@ -103,6 +103,7 @@ bundle-itch: (build-web "release") (dist-guard "itch")
 # Build and bundle for standalone web hosting
 bundle-web: (build-web "release") (dist-guard "web")
     #!/usr/bin/env bash
+    set -euo pipefail
     echo "Moving build result..."
     cp ./target/wasm32-unknown-emscripten/web-release/index.html \
     ./dist/web/index.html
@@ -129,6 +130,8 @@ bundle-mac-aarch64: mac-guard (mac-arm "release") (dist-guard "mac-aarch64")\
     (bundle-mac "aarch64")
 
 # Bundle Mac build product into *.app for either "x86_64" or "aarch64"
+[arg('arch', pattern='x86_64|aarch64')]
+[private]
 bundle-mac arch:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -190,6 +193,7 @@ bundle-mac arch:
     echo "> Bundled for MacOS-{{ arch }}!"
 
 # Check that the Mac target binary doesn't have unbundled dependencies
+[private]
 check-deps:
     #!/usr/bin/env python3
     import sys
@@ -212,8 +216,10 @@ setup: setup-emsdk setup-web setup-cross setup-platform
     mkdir ./dist
 
 # Install system-specific dependencies
+[private]
 setup-platform:
     #!/usr/bin/env bash
+    set -euo pipefail
     echo "> Installing raylib and platform-specific dependencies..."
     case {{ ostype }} in
         darwin*)
@@ -305,14 +311,18 @@ setup-platform:
     echo "> [a]: https://github.com/raysan5/raylib/wiki"
 
 # Install and set up web dependencies
+[private]
 setup-web:
     #!/usr/bin/env bash
+    set -euo pipefail
     echo "> Installing target wasm32-unknown-emscripten..."
     rustup target add wasm32-unknown-emscripten
 
 # Setup cross and its dependencies
+[private]
 setup-cross:
     #!/usr/bin/env bash
+    set -euo pipefail
     echo "> Installing cross for cross-compilation..."
     cargo install cross --git https://github.com/cross-rs/cross
 
@@ -322,6 +332,7 @@ setup-cross:
 
 
 # Setup emscripten. Stolen lovingly from https://github.com/brettchalupa/sola-raylib
+[private]
 setup-emsdk:
     #!/usr/bin/env bash
     # Install emsdk so `just build-web` can produce wasm builds. Idempotent:
@@ -378,15 +389,21 @@ setup-emsdk:
 
     EOF
 
+# Ensure current system is running MacOS
+[private]
 mac-guard:
     #!/usr/bin/env bash
+    set -euo pipefail
     if [[ ! {{ ostype }} == "darwin"* ]]; then
         echo "This is not a MacOS system."
         exit 1
     fi
 
+# Ensure the dist directory for the given platform exists
+[private]
 dist-guard platform:
     #!/usr/bin/env bash
+    set -euo pipefail
     echo "Ensuring ./dist exists..."
     if [ ! -d "./dist" ]; then
         mkdir ./dist
