@@ -117,6 +117,34 @@ bundle-web: (build-web "release") (dist-guard "web")
 
     echo "Bundled for web!"
 
+bundle-linux: (linux "release") (dist-guard "linux")
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    mkdir ./dist/linux/build
+    echo "> Moving build result..."
+    cp ./target/x86_64-unknown-linux-gnu/release/{{ package_name }} \
+        ./dist/linux/build
+
+    echo "> Moving assets..."
+    mkdir ./dist/linux/build/assets
+    cp -r ./assets ./dist/linux/build/
+
+    pushd ./dist/linux
+    echo "> Creating bundle..."
+    mkdir {{ package_name }}_linux_x86_64.AppDir/
+    touch {{ package_name }}_linux_x86_64.AppDir/AppRun
+    touch {{ package_name }}_linux_x86_64.AppDir/myapp.desktop
+    mkdir {{ package_name }}_linux_x86_64.AppDir/usr
+    mkdir {{ package_name }}_linux_x86_64.AppDir/usr/bin
+
+    mv ./build/{{ package_name }} \
+        {{ package_name }}_linux_x86_64.AppDir/usr/bin
+
+    popd
+    echo "Bundled for Linux!"
+
+
 # Create bundles for Apple Intel and Apple Silicon computers
 [parallel]
 bundle-mac-all: bundle-mac-x86 bundle-mac-aarch64

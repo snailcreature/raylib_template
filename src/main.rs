@@ -1,3 +1,4 @@
+#![windows_subsystem = "windows"]
 use std::ops::Range;
 
 use platform_compat::ppath;
