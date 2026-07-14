@@ -2,6 +2,7 @@ FROM ghcr.io/cross-rs/x86_64-pc-windows-gnu:edge
 
 #Install Raylib dependencies
 RUN apt-get update
+# https://github.com/cross-rs/cross/wiki/FAQ#using-clang--bindgen
 RUN apt install -y libclang-18-dev clang-18
 RUN apt install build-essential git -y
 RUN apt install -y \
