@@ -19,6 +19,15 @@ commit message: fmt
     git add -A
     git commit -m "{{ message }}"
 
+clean:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    cargo clean
+
+    if [ -d "./dist" ]; then
+        rm -rf ./dist/*
+    fi
+
 # Build for current system
 [arg('profile', pattern='dev|release')]
 build profile="dev":
