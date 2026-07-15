@@ -355,10 +355,10 @@ setup-cross:
 
     echo "> Setting up docker image for Linux cross-compilation..."
     rustup target add x86_64-unknown-linux-gnu
-    docker build --file CrossLinux.Dockerfile -t raylib_rs_lin_env .
+    docker build --file ./docker/cross/CrossLinux.Dockerfile -t raylib_rs_env:linux .
 
     echo "> Setting up docker image for Windows cross-compilation..."
-    docker build --file CrossWindows.Dockerfile -t raylib_rs_win_env .
+    docker build --file ./docker/cross/CrossWindows.Dockerfile -t raylib_rs_env:windows .
 
 
 # Setup emscripten. Stolen lovingly from https://github.com/brettchalupa/sola-raylib
