@@ -57,7 +57,6 @@ fn main() {
     println!("All set up!");
 
     while !rl.window_should_close() {
-        // game_loop::run(rl, thread, 60, move |rl, thread| {
         /*  --- UPDATE --- */
         let dt = rl.get_frame_time();
         frame_count += dt;
@@ -115,7 +114,6 @@ fn main() {
         draw_text_center(&mut d, "Hello, world!", 15, 20, Color::BLACK);
         draw_text_center(&mut d, format!("{}", value).as_str(), 30, 20, Color::BLUE);
         d.draw_circle_v(ball.position, ball.radius, ball.color);
-        // });
     }
 }
 
