@@ -1,6 +1,7 @@
 # Docs
 
 ## Table of Contents
+
 1. [Bundling](/docs/bundling/index.md)
     a. [Linux](/docs/bundling/linux.md)
     b. [MacOS](/docs/bundling/mac.md)
