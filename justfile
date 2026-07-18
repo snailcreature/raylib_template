@@ -291,6 +291,8 @@ bundle-mac arch:
     echo "> Moving assets..."
     mkdir ./dist/mac-{{ arch }}/build/assets
     cp -r ./assets ./dist/mac-{{ arch }}/build/
+    mkdir ./dist/mac-{{ arch }}/build/icons
+    cp ./static/apple_icons.icns ./dist/mac-{{ arch }}/build/icons
     
     pushd ./dist/mac-{{ arch }}
     otool -L ./build/{{ package_name }} | just ../../check-deps
@@ -326,6 +328,8 @@ bundle-mac arch:
         <string>codes.snail.{{ package_name }}</string>
         <key>CFBundlePackageType</key>
         <string>APPL</string>
+        <key>CFBundleIconFile</key>
+        <string>icon.icns</string>
         <key>CSResourcesFileMapped</key>
         <true/>
     </dict>
@@ -333,6 +337,8 @@ bundle-mac arch:
 
     mv ./build/{{ package_name }} {{ package_name }}_{{ arch }}.app/Contents/MacOS
     mv ./build/assets {{ package_name }}_{{ arch }}.app/Contents/Resources
+    mv ./build/icons/apple_icons.icns \
+        {{ package_name }}_{{ arch }}.app/Contents/Resources/icon.icns
 
     echo "> Signing bundle..."
     codesign -f -s "SnailCreature" {{ package_name }}_{{ arch }}.app --deep
