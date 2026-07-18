@@ -134,6 +134,7 @@ bundle-web: (build-web "release") (dist-guard "web")
 
     echo "Bundled for web!"
 
+# Build and bundle an AppImage for Linux distribution
 bundle-linux: (linux "release") (dist-guard "linux")
     #!/usr/bin/env bash
     set -euo pipefail
@@ -193,6 +194,7 @@ bundle-linux: (linux "release") (dist-guard "linux")
     popd
     echo "Bundled for Linux!"
 
+# Build for Linux and bundle into *.deb binaries
 bundle-deb: (linux "release") (dist-guard "deb")
     #!/usr/bin/env bash
     set -euo pipefail

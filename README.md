@@ -29,5 +29,10 @@ implemented for ease of use:
    commands
 3. [Quartermaster](/engine/quartermaster) - an asset manager with automatic
    memory management
-4. [Ringo](/engine/ringo) - a pseudorandom number generator
-5. [rlimgui](/engine/rlimgui) - DearIMGUI compatibility layer
+1. [Ringo](/engine/ringo) - a pseudorandom number generator
+2. [rlimgui](/engine/rlimgui) - DearIMGUI compatibility layer
+3. [platform_compat](/engine/platform_compat) - Compatibility layer to ensure asset paths work across platforms
+
+## Documentation
+
+Check the [[./notes/index.md|notes]] folder for documentation on the various elements of this project
