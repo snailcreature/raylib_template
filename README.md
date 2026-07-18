@@ -54,6 +54,10 @@ implemented for ease of use:
 
 Check the [docs](/docs/index.md) folder for documentation on the various elements of this project
 
+## Disclaimer
+
+No AI was knowingly used in the research or creation of this project.
+
 ---
 
 ## References
