@@ -1,6 +1,7 @@
 [package]
 name = "raylib_template"
 description = "A template project for working with raylib in Rust."
+authors = ["SnailCreature"]
 version = "0.1.0"
 edition = "2024"
 build = "build.rs"

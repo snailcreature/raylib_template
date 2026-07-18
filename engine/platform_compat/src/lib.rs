@@ -1,7 +1,3 @@
-pub fn add(left: u64, right: u64) -> u64 {
-    left + right
-}
-
 pub mod path {
     #[cfg(all(target_os = "macos", not(debug_assertions)))]
     use core_foundation::bundle::*;
@@ -23,7 +19,15 @@ pub mod path {
         format!("{bundle_path_str}/{resource_path_str}/{path}").to_string()
     }
 
-    #[cfg(any(not(target_os = "macos"), debug_assertions))]
+    #[cfg(all(target_os = "linux", not(debug_assertions)))]
+    pub fn get_bundle_path(path: &str) -> String {
+        format!("/usr/share/{path}").to_string()
+    }
+
+    #[cfg(any(
+        all(not(target_os = "macos"), not(target_os = "linux")),
+        debug_assertions
+    ))]
     pub fn get_bundle_path(path: &str) -> String {
         path.into()
     }

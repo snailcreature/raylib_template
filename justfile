@@ -7,6 +7,14 @@ package_version := `echo $(cargo metadata --no-deps --no-default-features \
     --format-version 1 \
     | python3 -c "import sys, json; \
     print(json.load(sys.stdin)['packages'][0]['version'])")`
+package_authors := `echo $(cargo metadata --no-deps --no-default-features \
+    --format-version 1 \
+    | python3 -c "import sys, json; \
+    print(json.load(sys.stdin)['packages'][0]['authors'][0])")`
+package_description := `echo $(cargo metadata --no-deps --no-default-features \
+    --format-version 1 \
+    | python3 -c "import sys, json; \
+    print(json.load(sys.stdin)['packages'][0]['description'])")`
 
 set default-list := true
 
@@ -153,6 +161,61 @@ bundle-linux: (linux "release") (dist-guard "linux")
     popd
     echo "Bundled for Linux!"
 
+bundle-deb: (linux "release") (dist-guard "deb")
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    mkdir ./dist/deb/build
+    echo "> Moving build result..."
+    cp ./target/x86_64-unknown-linux-gnu/release/{{ package_name }} \
+        ./dist/deb/build
+
+    echo "> Moving assets..."
+    mkdir ./dist/deb/build/assets
+    cp -r ./assets ./dist/deb/build/
+
+    pushd ./dist/deb
+    echo "> Creating bundle..."
+    mkdir -p output/DEBIAN
+    mkdir -p output/usr/bin
+    mkdir -p output/usr/share
+
+    PKG=$(echo "{{ package_name }}" | sed "s/_/-/g")
+
+    cat > output/DEBIAN/control << EOF
+    Source: {{ package_name }}
+    Section: games
+    Priority: optional
+    Package: $PKG
+    Version: {{ package_version }}
+    Architecture: amd64
+    Maintainer: {{ package_authors }}
+    Description: {{ package_description }}
+    EOF
+
+    mv ./build/{{ package_name }} \
+        output/usr/bin
+
+    mv ./build/assets output/usr/share
+
+    echo "> Building with docker..."
+    declare -a arr=("bookworm" "trixie" "sid")
+    for DEBIAN_DIST in "${arr[@]}"
+    do
+        echo "> Building $DEBIAN_DIST"
+        FULL_VERSION={{ package_version }}+${DEBIAN_DIST}_amd64
+        docker build . -t raylib_rs_env:bundle_deb_${DEBIAN_DIST} \
+            --build-arg DEBIAN_DIST=$DEBIAN_DIST \
+            --build-arg PACKAGE=$PKG \
+            --build-arg FULL_VERSION=$FULL_VERSION \
+            --file ../../docker/bundle/Deb.Dockerfile
+        id="$(docker create raylib_rs_env:bundle_deb_${DEBIAN_DIST})"
+        docker cp $id:/${PKG}_$FULL_VERSION.deb - \
+                > ./${PKG}_$FULL_VERSION.deb
+    done
+
+    popd
+    echo "> Bundled for Debian!"
 
 # Create bundles for Apple Intel and Apple Silicon computers
 [parallel]
