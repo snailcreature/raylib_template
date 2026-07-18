@@ -19,12 +19,29 @@ just setup
 
 [just](https://just.systems/man/en/)
 
+## Setting Up
+
+1. Clone this repository
+    ```sh
+    git clone --depth=1 https://github.com/snailcreature/raylib_template.git <your project name>
+    ```
+2. Point it at your remote repository
+    ```sh
+    git remote set-url origin <your repo url>
+    ```
+1. Update `Cargo.toml` with your project details
+4. Update `project_identifier` in the `justfile` (unless you are me)
+5. Ensure `just` is installed and run the setup command
+    ```sh
+    just setup
+    ```
+
 ## Inclusions
 
 This template includes a handful of data structures and programming patterns
 implemented for ease of use:
 
-1. [Ecstasy](/engine/ecstasy/) - an ECS implementation
+1. [Ecstasy](/engine/ecstasy/) - an ECS implementation (see also: [Ecstatic](https://github.com/snailcreature/ecstatic))
 2. [Cacao](/engine/cacao/) - a very basic events system with observers and
    commands
 3. [Quartermaster](/engine/quartermaster) - an asset manager with automatic
