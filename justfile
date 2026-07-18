@@ -15,7 +15,9 @@ package_description := `echo $(cargo metadata --no-deps --no-default-features \
     --format-version 1 \
     | python3 -c "import sys, json; \
     print(json.load(sys.stdin)['packages'][0]['description'])")`
+package_identifier := `echo "codes.snail.$(just --evaluate package_name)"`
 
+set lazy
 set default-list := true
 
 # Format all rust code
@@ -327,7 +329,7 @@ bundle-mac arch:
         <key>CFBundleVersion</key>
         <string>{{ package_version }}</string>
         <key>CFBundleIdentifier</key>
-        <string>codes.snail.{{ package_name }}</string>
+        <string>{{ package_identifier }}</string>
         <key>CFBundlePackageType</key>
         <string>APPL</string>
         <key>CFBundleIconFile</key>

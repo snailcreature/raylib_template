@@ -35,4 +35,4 @@ implemented for ease of use:
 
 ## Documentation
 
-Check the [[./notes/index.md|notes]] folder for documentation on the various elements of this project
+Check the [notes](/notes/index.md) folder for documentation on the various elements of this project
