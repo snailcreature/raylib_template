@@ -23,7 +23,9 @@ respective bundles. I recommend keeping the names the same, unless you intend to
 I highly recommend [the delphitools image converter](https://delphi.tools/tools/image-converter) for quick generation of icons. I used the
 Raylib logo favicon[^2] to generate the default icons using `delphitools`.
 
-## Table of Contents
+Finally, make sure to update the `package_identifier` variable in the `justfile` with a personalised identifier that matches your project.
+
+## Index
 1. [[./linux.md|Linux]] - Creating deb and AppImage bundles
 2. [[./mac.md|MacOS]] - Creating MacOS apps
 3. [[./web.md|Web]] - Creating standalone websites and Itch.io bundles
