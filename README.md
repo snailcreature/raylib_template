@@ -25,7 +25,7 @@ just setup
     ```sh
     git clone --depth=1 https://github.com/snailcreature/raylib_template.git <your project name>
     ```
-2. Point it at your remote repository
+1. Point it at your remote repository[^1]
     ```sh
     git remote set-url origin <your repo url>
     ```
@@ -53,3 +53,9 @@ implemented for ease of use:
 ## Documentation
 
 Check the [notes](/notes/index.md) folder for documentation on the various elements of this project
+
+---
+
+## References
+
+[^1]: Answer to "How to properly fork a local git repository?"; `CodeWizard` - [https://stackoverflow.com/a/58113672](https://stackoverflow.com/a/58113672)
