@@ -151,12 +151,15 @@ bundle-linux: (linux "release") (dist-guard "linux")
     echo "> Creating bundle..."
     mkdir {{ package_name }}_linux_x86_64.AppDir/
     touch {{ package_name }}_linux_x86_64.AppDir/AppRun
-    touch {{ package_name }}_linux_x86_64.AppDir/myapp.desktop
+    touch {{ package_name }}_linux_x86_64.AppDir/{{ package_name }}.desktop
     mkdir {{ package_name }}_linux_x86_64.AppDir/usr
     mkdir {{ package_name }}_linux_x86_64.AppDir/usr/bin
+    mkdir {{ package_name }}_linux_x86_64.AppDir/usr/share
 
     mv ./build/{{ package_name }} \
         {{ package_name }}_linux_x86_64.AppDir/usr/bin
+    mv ./build/assets \
+        {{ package_name }}_linux_x86_64.AppDir/usr/share
 
     popd
     echo "Bundled for Linux!"
