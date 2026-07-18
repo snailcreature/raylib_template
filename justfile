@@ -147,19 +147,48 @@ bundle-linux: (linux "release") (dist-guard "linux")
     mkdir ./dist/linux/build/assets
     cp -r ./assets ./dist/linux/build/
 
+    mkdir ./dist/linux/build/icons
+    cp ./static/icon_256.png ./dist/linux/build/icons
+
     pushd ./dist/linux
     echo "> Creating bundle..."
-    mkdir {{ package_name }}_linux_x86_64.AppDir/
-    touch {{ package_name }}_linux_x86_64.AppDir/AppRun
-    touch {{ package_name }}_linux_x86_64.AppDir/{{ package_name }}.desktop
-    mkdir {{ package_name }}_linux_x86_64.AppDir/usr
-    mkdir {{ package_name }}_linux_x86_64.AppDir/usr/bin
-    mkdir {{ package_name }}_linux_x86_64.AppDir/usr/share
+    mkdir output.AppDir/
+    touch output.AppDir/AppRun
+    mkdir output.AppDir/usr
+    mkdir output.AppDir/usr/bin
+    mkdir output.AppDir/usr/share
+    
+    cat > output.AppDir/{{ package_name }}.desktop \
+        << EOF
+    [Desktop Entry]
+    Version=1.0
+    Name={{ package_name }}
+    Exec=/usr/bin/{{ package_name }}
+    Icon=/usr/share/icons/icon_256
+    Terminal=false
+    Type=Application
+    Categories=Game
+    EOF
 
     mv ./build/{{ package_name }} \
-        {{ package_name }}_linux_x86_64.AppDir/usr/bin
+        output.AppDir/usr/bin
     mv ./build/assets \
-        {{ package_name }}_linux_x86_64.AppDir/usr/share
+        output.AppDir/usr/share
+    mv ./build/icons \
+        output.AppDir/usr/share
+
+    echo "> Building AppImage"
+    PKG=$(echo "{{ package_name }}" | sed "s/_/-/g")
+    FULL_VERSION={{ package_version }}
+    ARCH="x86_64"
+    docker build . -t raylib_rs_env:bundle_appimage \
+        --build-arg PACKAGE=$PKG \
+        --build-arg FULL_VERSION=$FULL_VERSION \
+        --build-arg ARCH=$ARCH \
+        --file ../../docker/bundle/AppImage.Dockerfile
+    id="$(docker create raylib_rs_env:bundle_appimage)"
+    docker cp $id:/${PKG}_$FULL_VERSION-$ARCH.AppImage - \
+            > ./${PKG}_$FULL_VERSION-$ARCH.AppImage
 
     popd
     echo "Bundled for Linux!"
@@ -177,11 +206,16 @@ bundle-deb: (linux "release") (dist-guard "deb")
     mkdir ./dist/deb/build/assets
     cp -r ./assets ./dist/deb/build/
 
+    mkdir ./dist/deb/build/icons
+    cp ./static/icon_256.png ./dist/deb/build/icons
+
     pushd ./dist/deb
     echo "> Creating bundle..."
     mkdir -p output/DEBIAN
     mkdir -p output/usr/bin
     mkdir -p output/usr/share
+    mkdir -p output/usr/share/applications
+    mkdir -p output/usr/share/icons
 
     PKG=$(echo "{{ package_name }}" | sed "s/_/-/g")
 
@@ -196,17 +230,28 @@ bundle-deb: (linux "release") (dist-guard "deb")
     Description: {{ package_description }}
     EOF
 
+    cat > output/usr/share/applications/{{ package_name }}.desktop << EOF
+    [Desktop Entry]
+    Version=1.0
+    Name={{ package_name }}
+    Exec=/usr/bin/{{ package_name }}
+    Icon=/usr/share/icons/icon_256
+    Terminal=false
+    Type=Application
+    Categories=Game
+    EOF
+
     mv ./build/{{ package_name }} \
         output/usr/bin
-
     mv ./build/assets output/usr/share
+    mv ./build/icons output/usr/share
 
     echo "> Building with docker..."
     declare -a arr=("bookworm" "trixie" "sid")
     for DEBIAN_DIST in "${arr[@]}"
     do
         echo "> Building $DEBIAN_DIST"
-        FULL_VERSION={{ package_version }}+${DEBIAN_DIST}_amd64
+        FULL_VERSION={{ package_version }}+${DEBIAN_DIST}_x86_64
         docker build . -t raylib_rs_env:bundle_deb_${DEBIAN_DIST} \
             --build-arg DEBIAN_DIST=$DEBIAN_DIST \
             --build-arg PACKAGE=$PKG \
