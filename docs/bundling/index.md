@@ -26,10 +26,10 @@ Raylib logo favicon[^2] to generate the default icons using `delphitools`.
 Finally, make sure to update the `package_identifier` variable in the `justfile` with a personalised identifier that matches your project.
 
 ## Index
-1. [[./linux.md|Linux]] - Creating deb and AppImage bundles
-2. [[./mac.md|MacOS]] - Creating MacOS apps
-3. [[./web.md|Web]] - Creating standalone websites and Itch.io bundles
-4. [[./windows.md|Windows]] - Creating apps for Windows
+1. [Linux](/docs/bundling/linux.md) - Creating deb and AppImage bundles
+2. [MacOS](/docs/bundling/mac.md) - Creating MacOS apps
+3. [Web](/docs/bundling/web.md) - Creating standalone websites and Itch.io bundles
+4. [Windows](/docs/bundling/windows.md) - Creating apps for Windows
 
 ---
 
