@@ -52,7 +52,7 @@ implemented for ease of use:
 
 ## Documentation
 
-Check the [notes](/notes/index.md) folder for documentation on the various elements of this project
+Check the [docs](/docs/index.md) folder for documentation on the various elements of this project
 
 ---
 
