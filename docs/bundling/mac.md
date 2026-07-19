@@ -55,9 +55,9 @@ where it can find the various resources it needs. The bundler script uses inform
 will need to update the `package_identifier` variable in the `justfile` with your own unique identifier.
 
 ```xml
-<?xml version=\"1.0\" encoding=\"UTF-8\"?>
-<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
-    <plist version=\"1.0\">
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+    <plist version="1.0">
     <dict>
         <key>CFBundleName</key>
         <string><package_name></string>
