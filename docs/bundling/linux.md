@@ -9,6 +9,14 @@ binary application bundles and AppImage bundles.
 > It uses [custom Docker images](/docker) for both building and bundling, as `sola-raylib-sys` requires a newer version of `make` in order to be
 > compiled.
 
+## Table of Contents
+- [Bundling for Linux](#bundling-for-linux)
+    - [Deb Binary Application](#deb-binary-application)
+        - [control](#control)
+        - [Desktop Entry](#desktop-entry)
+    - [AppImage](#appimage)
+    - [References](#references)
+
 ## Deb Binary Application
 
 Run `just bundle-deb`. This will produce two `*.deb` files under `dist/deb`, one for the current `stable` version of Debian (`trixie` at time of
@@ -22,7 +30,7 @@ writing) and one for the `unstable` version (lovingly named `sid`). The contents
         |\bin
         |   \<project_name>
          \share
-            \applications
+            |\applications
             |   \<project_name>.desktop
             |\assets
             |   \<the contents of the assets folder...>
@@ -71,9 +79,37 @@ Categories=Game
 
 The Version field here refers to the version of the `*.desktop` specification[^2], not the version of the project, so should be left untouched.
 
+## AppImage
+
+Run `just bundle-linux`. This will produce a single `*.AppImage` file under `dist/linux`. Similar to the above `*.deb` bundle script, the
+contents of the bundle can be viewed under `dist/linux/output.AppDir`.
+
+```
+output.AppDir
+    |\AppRun
+    |\<project_name>.desktop
+     \usr
+        |\bin
+        |   \<project_name>
+         \share
+            |\assets
+            |   \<contents of the assets folder...>
+             \icons
+                \icon_256.png
+```
+
+> [!NOTE]
+> The Linux bundle script uses the [AppImage.Dockerfile](/docker/bundle/AppImage.Dockerfile) to convert the contents of `dist/linux/output.Appdir`
+> into the final `*.AppImage` executable.
+
+The structure of the bundle is very similar to the Deb bundle structure, but without the `DEBIAN/control` file, the Desktop Entry file under
+root, and the addition of the `AppRun` file. The AppRun file in `output.AppDir` is a placeholder: The Docker image uses `linuxdeploy`[^4] to
+create the AppImage from the AppDir, which generates the AppRun executable automatically.
+
 ---
 
 ## References
 [^1]: Control files and their fields: Debian binary package control files; `debian.org` - [https://www.debian.org/doc/debian-policy/ch-controlfields.html#debian-binary-package-control-files-debian-control]
 [^2]: [https://github.com/flavienbwk/deb-package-tutorial/blob/main/mypackage_1.0_all/usr/share/applications/mypackage.desktop]
 [^3]: Desktop entries; `ArchWiki` - [https://wiki.archlinux.org/title/Desktop_entries]
+[^4]: linuxdeploy user guide; `appimage.org` - [https://docs.appimage.org/packaging-guide/from-source/linuxdeploy-user-guide.html]
