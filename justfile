@@ -251,7 +251,7 @@ bundle-deb: (linux "release") (dist-guard "deb")
     mv ./build/icons output/usr/share
 
     echo "> Building with docker..."
-    declare -a arr=("bookworm" "trixie" "sid")
+    declare -a arr=("stable" "sid")
     for DEBIAN_DIST in "${arr[@]}"
     do
         echo "> Building $DEBIAN_DIST"
