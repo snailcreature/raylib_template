@@ -19,6 +19,9 @@ just setup
 
 [just](https://just.systems/man/en/)
 
+> [!IMPORTANT] Cross-compilation is achieved using [cross](https://github.com/cross-rs/cross) alongside custom Docker images.
+> You will need [Docker](https://docs.docker.com/get-started/get-docker/) installed and running in order to cross-compile.
+
 ## Setting Up
 
 1. Clone this repository
@@ -35,6 +38,18 @@ just setup
     ```sh
     just setup
     ```
+
+> [!TLDR]
+> Run
+> ```sh
+> PROJ=<your_project_name>
+> ```
+> then
+> ```sh
+> git clone --depth=1 https://github.com/snailcreature/raylib_template.git $PROJ
+> cd ./$PROJ
+> just setup
+> ```
 
 ## Inclusions
 
@@ -53,6 +68,12 @@ implemented for ease of use:
 ## Documentation
 
 Check the [docs](/docs/index.md) folder for documentation on the various elements of this project
+
+## Related Projects
+
+- [raylib](https://www.raylib.com/) - [https://github.com/raysan5/raylib]
+- [sola-raylib](https://github.com/brettchalupa/sola-raylib)
+- [raylib-rs](https://github.com/raylib-rs/raylib-rs)
 
 ## Disclaimer
 

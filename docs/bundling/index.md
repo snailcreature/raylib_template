@@ -25,6 +25,8 @@ Raylib logo favicon[^2] to generate the default icons using `delphitools`.
 
 Finally, make sure to update the `package_identifier` variable in the `justfile` with a personalised identifier that matches your project.
 
+You will need Docker installed and running for the Linux and Windows bundlers.
+
 ## Index
 1. [Linux](/docs/bundling/linux.md) - Creating deb and AppImage bundles
 2. [MacOS](/docs/bundling/mac.md) - Creating MacOS apps
