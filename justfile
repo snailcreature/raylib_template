@@ -17,6 +17,8 @@ package_description := `echo $(cargo metadata --no-deps --no-default-features \
     print(json.load(sys.stdin)['packages'][0]['description'])")`
 package_identifier := `echo "codes.snail.$(just --evaluate package_name)"`
 
+codesign_keychain_ident := "SnailCreature"
+
 set lazy
 set default-list := true
 
@@ -345,7 +347,7 @@ bundle-mac arch:
         {{ package_name }}_{{ arch }}.app/Contents/Resources/icon.icns
 
     echo "> Signing bundle..."
-    codesign -f -s "SnailCreature" {{ package_name }}_{{ arch }}.app --deep
+    codesign -f -s {{ codesign_keychain_ident }} {{ package_name }}_{{ arch }}.app --deep
     popd
 
     echo "> Bundled for MacOS-{{ arch }}!"

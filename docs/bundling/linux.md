@@ -28,14 +28,14 @@ writing) and one for the `unstable` version (lovingly named `sid`). The contents
     |   \control
      \usr
         |\bin
-        |   \<project_name>
+        |   \<project_name> // The executable
          \share
             |\applications
             |   \<project_name>.desktop
             |\assets
             |   \<the contents of the assets folder...>
              \icons
-                \icon_256.png
+                \icon_256.png // Copy of static/icon_256.png
 ```
 
 > [!NOTE]
@@ -90,12 +90,12 @@ output.AppDir
     |\<project_name>.desktop
      \usr
         |\bin
-        |   \<project_name>
+        |   \<project_name> // The executable
          \share
             |\assets
             |   \<contents of the assets folder...>
              \icons
-                \icon_256.png
+                \icon_256.png // Copy of static/icon_256.png
 ```
 
 > [!NOTE]
@@ -113,3 +113,5 @@ create the AppImage from the AppDir, which generates the AppRun executable autom
 [^2]: [https://github.com/flavienbwk/deb-package-tutorial/blob/main/mypackage_1.0_all/usr/share/applications/mypackage.desktop]
 [^3]: Desktop entries; `ArchWiki` - [https://wiki.archlinux.org/title/Desktop_entries]
 [^4]: linuxdeploy user guide; `appimage.org` - [https://docs.appimage.org/packaging-guide/from-source/linuxdeploy-user-guide.html]
+
+Special thanks to [Dario Griffo and his article](https://dario.griffo.io/posts/ultimate-guide-debian-packaging/) on packaging `uv` for Debian.

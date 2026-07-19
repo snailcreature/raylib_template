@@ -89,7 +89,7 @@ dist
     |
     |- web
         |
-        |- favicon.ico
+        |- favicon.ico // Copy of static/favicon.ico
         |- index.html
         |- <project name>.data
         |- <project name>.js
