@@ -19,7 +19,8 @@ just setup
 
 [just](https://just.systems/man/en/)
 
-> [!IMPORTANT] Cross-compilation is achieved using [cross](https://github.com/cross-rs/cross) alongside custom Docker images.
+> [!IMPORTANT] 
+> Cross-compilation is achieved using [cross](https://github.com/cross-rs/cross) alongside custom Docker images.
 > You will need [Docker](https://docs.docker.com/get-started/get-docker/) installed and running in order to cross-compile.
 
 ## Setting Up
@@ -39,7 +40,7 @@ just setup
     just setup
     ```
 
-> [!TLDR]
+> [!TIP]
 > Run
 > ```sh
 > PROJ=<your_project_name>
