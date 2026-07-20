@@ -53,7 +53,7 @@ WORKDIR /home/wineuser
 USER wineuser
 
 # Set up wine
-ENV WINEDEBUG=-all,err+all
+ENV WINEDEBUG=-all,fixme+all
 ENV WINEDLLOVERRIDES=winemenubuilder.exe=d
 ENV WINEARCH=win64
 
@@ -83,25 +83,3 @@ dotnet add package Microsoft.Windows.SDK.BuildTools"
 RUN wine cmd <<EOT
 /winappcli/winapp --help
 EOT
-
-FROM base AS bundle
-
-ARG PACKAGE
-ARG FULL_VERSION
-
-RUN mkdir -p ./output/dist
-WORKDIR ./output
-COPY Cargo.toml ./Cargo.toml
-
-RUN wine cmd <<EOT
-/winappcli/winapp init . --verbose --no-prompt
-EOT
-
-COPY output/ ./dist
-
-RUN wine cmd <<EOT
-/winappcli/winapp pack ./dist --executable $PACKAGE.exe --verbose --no-prompt --skip-pri --output ./${PACKAGE}_${FULL_VERSION}.msix
-EOT
-
-RUN ls -a
-RUN ls dist -a
