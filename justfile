@@ -190,13 +190,14 @@ bundle-windows: (dist-guard "windows")
     mkdir ./output/Assets
     mv ./output/icon_256.png ./output/Assets
 
+    echo "Running docker build. This could take a while, so go get yourself a drink..."
     FULL_VERSION={{ package_version }}_x86_64
     docker build . -t raylib_rs_env:bundle_winapp \
         --build-arg PACKAGE={{ package_name }} \
         --build-arg FULL_VERSION=$FULL_VERSION \
         --file ../../docker/bundle/WinApp.Dockerfile
     id="$(docker create raylib_rs_env:bundle_winapp)"
-    docker cp $id:/{{ package_name }}_$FULL_VERSION.msix - \
+    docker cp $id:/home/wineuser/output/{{ package_name }}_$FULL_VERSION.msix - \
             > ./{{ package_name }}_$FULL_VERSION.msix
 
     popd

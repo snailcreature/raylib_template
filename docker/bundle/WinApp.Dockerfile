@@ -25,24 +25,41 @@ RUN source /etc/os-release && \
     dpkg -i packages-microsoft-prod.deb && \
     rm packages-microsoft-prod.deb && \
     apt-get -qq update && \
-    apt-get install -y powershell winetricks && \
+    apt-get install -y powershell winetricks cabextract && \
     # clean
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
+
+# Download wine-mono for DotNet compatibility
+RUN wget -P /usr/share/wine/mono https://dl.winehq.org/wine/wine-mono/11.2.0/wine-mono-11.2.0-x86.msi
+
+# Install winappcli
+RUN wget -P /winappcli https://github.com/microsoft/winappCli/releases/download/v0.4.0/winappcli-x64.zip
+RUN pushd /winappcli && \
+unzip winappcli-x64.zip && \
+popd
+
+# Download Powershell
+# https://learn.microsoft.com/en-us/powershell/scripting/install/install-powershell-on-windows?view=powershell-7.4#install-the-zip-package
+RUN wget -P /powershell https://github.com/PowerShell/PowerShell/releases/download/v7.6.3/PowerShell-7.6.3-win-x64.zip
+RUN pushd /powershell && \
+unzip PowerShell-7.6.3-win-x64.zip && \
+popd
+
+RUN adduser wineuser --quiet --disabled-login --home /home/wineuser --gecos ,,,
+RUN chown -R wineuser:wineuser /winappcli \
+&& chown -R wineuser:wineuser /powershell
+WORKDIR /home/wineuser
+USER wineuser
 
 # Set up wine
 ENV WINEDEBUG=-all,err+all
 ENV WINEDLLOVERRIDES=winemenubuilder.exe=d
 ENV WINEARCH=win64
 
+ENV WINETRICKS_DOWNLOADER="wget"
+
 RUN winecfg
-# Download wine-mono for DotNet compatibility
-RUN wget -P /mono https://dl.winehq.org/wine/wine-mono/11.2.0/wine-mono-11.2.0-x86.msi
-# Install winappcli
-RUN wget -P /winappcli https://github.com/microsoft/winappCli/releases/download/v0.4.0/winappcli-x64.zip
-RUN pushd /winappcli && \
-unzip winappcli-x64.zip && \
-popd
 
 RUN wineboot --init 2>/tmp/wb.log; \
   if [ $? -ne 0 ]; then \
@@ -54,16 +71,13 @@ RUN wineboot --init 2>/tmp/wb.log; \
   rm -f /tmp/wb.log
 
 # Install wine-mono
-RUN msiexec /i /mono/wine-mono-11.2.0-x86.msi /qn
-RUN rm -rf /mono/wine-mono-11.2.0-x86.msi
+RUN msiexec /i /usr/share/wine/mono/wine-mono-11.2.0-x86.msi /qn /nogui
 
-RUN xvfb-run winetricks dotnet9 -q
-
-RUN wine cmd <<EOT
-dotnet -h
-dotnet add package Microsoft.WindowsAppSDK
-dotnet add package Microsoft.Windows.SDK.BuildTools
-EOT
+RUN wine /powershell/pwsh.exe -c "Write-Output 'Hello, from Powershell!'; \
+Add-AppxPackage -RegisterByFamilyName -MainPackage Microsoft.DesktopAppInstaller_8wekyb3d8bbwe; \
+winget install Microsoft.DotNet.SDK.10; \
+dotnet add package Microsoft.WindowsAppSDK; \
+dotnet add package Microsoft.Windows.SDK.BuildTools"
 
 # Check winappcli is working
 RUN wine cmd <<EOT
@@ -76,16 +90,17 @@ ARG PACKAGE
 ARG FULL_VERSION
 
 RUN mkdir -p ./output/dist
-
-COPY output/ ./output/dist
-COPY Cargo.toml ./output/Cargo.toml
-
-WORKDIR /output
+WORKDIR ./output
+COPY Cargo.toml ./Cargo.toml
 
 RUN wine cmd <<EOT
-/winappcli/winapp init
-/winappcli/winapp pack ./dist --output ./${PACKAGE}_${FULL_VERSION}.msix \
---verbose
+/winappcli/winapp init . --verbose --no-prompt
+EOT
+
+COPY output/ ./dist
+
+RUN wine cmd <<EOT
+/winappcli/winapp pack ./dist --executable $PACKAGE.exe --verbose --no-prompt --skip-pri --output ./${PACKAGE}_${FULL_VERSION}.msix
 EOT
 
 RUN ls -a
