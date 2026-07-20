@@ -138,6 +138,70 @@ bundle-web: (build-web "release") (dist-guard "web")
 
     echo "Bundled for web!"
 
+# bundle-windows: (windows "release") (dist-guard "windows")
+bundle-windows: (dist-guard "windows")
+    #!/usr/bin/env bash
+    set -euo pipefail
+    
+    echo "Moving build result..."
+    mkdir -p ./dist/windows/output/data
+    cp ./target/x86_64-pc-windows-gnu/release/raylib_template.exe \
+        ./dist/windows/output
+    cp -r ./assets ./dist/windows/output/data
+    cp ./static/icon_256.png ./dist/windows/output
+    cp ./Cargo.toml ./dist/windows
+
+    pushd ./dist/windows
+    echo "Creating manifest..."
+    cat > ./output/Package.appxmanifest << EOF
+    <?xml version="1.0" encoding="utf-8"?>
+    <Package xmlns="http://schemas.microsoft.com/appx/2010/manifest">
+      <Identity Name="{{ package_identifier }}" 
+                Version="{{ package_version }}" 
+                Publisher="CN={{ package_authors }}" />
+      <Properties>
+        <DisplayName>{{ package_name }}</DisplayName>
+        <PublisherDisplayName>{{ package_authors }}</PublisherDisplayName>
+        <Logo>Assets\\icon_256.png</Logo>
+      </Properties>
+      <Prerequisites>
+        <OSMinVersion>6.2</OSMinVersion>
+        <OSMaxVersionTested>6.2</OSMaxVersionTested>
+      </Prerequisites>
+      <Resources>
+        <Resource Language="en-gb" />
+      </Resources>
+      <Applications>
+        <Application
+            Id="{{ package_name }}"
+            Executable="{{ package_name }}"
+            EntryPoint="main"
+        >
+          <VisualElements DisplayName="{{ package_name }}"
+               Description="{{ package_description }}"
+               Logo="Assets\\icon_256.png" SmallLogo="Assets\\icon_256.png"  
+               ForegroundText="light" BackgroundColor="#000000">
+          </VisualElements>
+        </Application>
+      </Applications>
+    </Package>
+    EOF
+
+    mkdir ./output/Assets
+    mv ./output/icon_256.png ./output/Assets
+
+    FULL_VERSION={{ package_version }}_x86_64
+    docker build . -t raylib_rs_env:bundle_winapp \
+        --build-arg PACKAGE={{ package_name }} \
+        --build-arg FULL_VERSION=$FULL_VERSION \
+        --file ../../docker/bundle/WinApp.Dockerfile
+    id="$(docker create raylib_rs_env:bundle_winapp)"
+    docker cp $id:/{{ package_name }}_$FULL_VERSION.msix - \
+            > ./{{ package_name }}_$FULL_VERSION.msix
+
+    popd
+    echo "Bundled for Windows-x86_64!"
+
 # Build and bundle an AppImage for Linux distribution
 bundle-linux: (linux "release") (dist-guard "linux")
     #!/usr/bin/env bash
