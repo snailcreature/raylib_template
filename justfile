@@ -17,7 +17,16 @@ package_description := `echo $(cargo metadata --no-deps --no-default-features \
     print(json.load(sys.stdin)['packages'][0]['description'])")`
 package_identifier := `echo "codes.snail.$(just --evaluate package_name)"`
 
+# Only needed for MacOS bundles
 codesign_keychain_ident := "SnailCreature"
+
+# Terminal formatting codes
+bold := `tput bold`
+red := `tput setaf 1`
+green := `tput setaf 2`
+yellow := `tput setaf 3`
+blue := `tput setaf 4`
+normal := `tput sgr0`
 
 set lazy
 set default-list := true
@@ -74,22 +83,22 @@ mac-x86 profile="dev": mac-guard
 
 # Build for Windows
 [arg('profile', pattern='dev|release')]
-windows profile="dev":
+windows profile="dev": docker-guard
     cross build --target x86_64-pc-windows-gnu --profile {{ profile }}
 
 # Build for linux
 [arg('profile', pattern='dev|release')]
-linux profile="dev":
+linux profile="dev": docker-guard
     cross build --target x86_64-unknown-linux-gnu --profile {{ profile }}
 
 # Build for web
 [arg('profile', pattern='dev|release')]
 build-web profile="dev":
     cargo build --target wasm32-unknown-emscripten --profile web-{{ profile }}
-    @echo "Copying {{ package_name }}.data..."
+    @just info "Copying {{ package_name }}.data..."
     @cp ./target/wasm32-unknown-emscripten/web-{{ profile }}/deps/{{ package_name }}.data \
     ./target/wasm32-unknown-emscripten/web-{{ profile }}/{{ package_name }}.data
-    @echo "Copying favicon.ico..."
+    @just info "Copying favicon.ico..."
     @cp ./static/favicon.ico ./target/wasm32-unknown-emscripten/web-\
         {{ profile}}/favicon.ico
 
@@ -102,7 +111,7 @@ serve-web profile="dev":
 bundle-itch: (build-web "release") (dist-guard "itch")
     #!/usr/bin/env bash
     set -euo pipefail
-    echo "Moving build result..."
+    just info "Moving build result..."
     mkdir ./dist/itch/build
     cp ./target/wasm32-unknown-emscripten/web-release/index.html \
     ./dist/itch/build/index.html
@@ -114,18 +123,18 @@ bundle-itch: (build-web "release") (dist-guard "itch")
         ./dist/itch/build/{{ package_name }}.data
     cp ./static/favicon.ico ./dist/itch/build/favicon.ico
 
-    echo "Zipping it all up..."
+    just info "Zipping it all up..."
     pushd ./dist/itch
     zip {{ package_name }}-itch.zip build/*
     popd
 
-    echo "Bundled for Itch.io!"
+    just success "Bundled for Itch.io!"
 
 # Build and bundle for standalone web hosting
 bundle-web: (build-web "release") (dist-guard "web")
     #!/usr/bin/env bash
     set -euo pipefail
-    echo "Moving build result..."
+    just info "Moving build result..."
     cp ./target/wasm32-unknown-emscripten/web-release/index.html \
     ./dist/web/index.html
     cp ./target/wasm32-unknown-emscripten/web-release/{{ package_name }}.wasm \
@@ -136,18 +145,18 @@ bundle-web: (build-web "release") (dist-guard "web")
         ./dist/web/{{ package_name }}.data
     cp ./static/favicon.ico ./dist/web/favicon.ico
 
-    echo "Bundled for web!"
+    just success "Bundled for web!"
 
 # bundle-windows: (windows "release") (dist-guard "windows")
-bundle-windows: (dist-guard "windows")
+bundle-windows: docker-guard (dist-guard "windows")
     #!/usr/bin/env bash
     set -euo pipefail
     
-    echo "Building base bundler image..."
+    just info "Building base bundler image..."
     docker build . -t raylib_rs_env:base_winapp \
             --file ./docker/bundle/WinApp/Base.Dockerfile
 
-    echo "Moving build result..."
+    just info "Moving build result..."
     mkdir -p ./dist/windows/output/dist/data
     cp ./target/x86_64-pc-windows-gnu/release/raylib_template.exe \
         ./dist/windows/output/dist
@@ -158,7 +167,8 @@ bundle-windows: (dist-guard "windows")
     pushd ./dist/windows
 
     mkdir ./bundle
-    echo "Running docker build. This could take a while, so go get yourself a drink..."
+    just info "Running docker build."
+    just warning "This could take a while, so go get yourself a drink..."
     FULL_VERSION={{ package_version }}_x86_64
     docker build . -t raylib_rs_env:bundle_winapp \
         --build-arg PACKAGE={{ package_name }} \
@@ -173,10 +183,10 @@ bundle-windows: (dist-guard "windows")
     docker cp $id:/home/wineuser/output/ ./bundle
 
     popd
-    echo "Bundled for Windows-x86_64!"
+    just success "Bundled for Windows-x86_64!"
 
 # Build and bundle an AppImage for Linux distribution
-bundle-linux: (linux "release") (dist-guard "linux")
+bundle-linux: docker-guard (linux "release") (dist-guard "linux")
     #!/usr/bin/env bash
     set -euo pipefail
 
@@ -185,7 +195,7 @@ bundle-linux: (linux "release") (dist-guard "linux")
     cp ./target/x86_64-unknown-linux-gnu/release/{{ package_name }} \
         ./dist/linux/build
 
-    echo "> Moving assets..."
+    just info "> Moving assets..."
     mkdir ./dist/linux/build/assets
     cp -r ./assets ./dist/linux/build/
 
@@ -193,7 +203,7 @@ bundle-linux: (linux "release") (dist-guard "linux")
     cp ./static/icon_256.png ./dist/linux/build/icons
 
     pushd ./dist/linux
-    echo "> Creating bundle..."
+    just info "> Creating bundle..."
     mkdir output.AppDir/
     touch output.AppDir/AppRun
     mkdir output.AppDir/usr
@@ -219,7 +229,7 @@ bundle-linux: (linux "release") (dist-guard "linux")
     mv ./build/icons \
         output.AppDir/usr/share
 
-    echo "> Building AppImage"
+    just info "> Building AppImage"
     PKG=$(echo "{{ package_name }}" | sed "s/_/-/g")
     FULL_VERSION={{ package_version }}
     ARCH="x86_64"
@@ -233,19 +243,19 @@ bundle-linux: (linux "release") (dist-guard "linux")
             > ./${PKG}_$FULL_VERSION-$ARCH.AppImage
 
     popd
-    echo "Bundled for Linux!"
+    just success "Bundled for Linux!"
 
 # Build for Linux and bundle into *.deb binaries
-bundle-deb: (linux "release") (dist-guard "deb")
+bundle-deb: docker-guard (linux "release") (dist-guard "deb")
     #!/usr/bin/env bash
     set -euo pipefail
 
-    mkdir ./dist/deb/build
+    just info ./dist/deb/build
     echo "> Moving build result..."
     cp ./target/x86_64-unknown-linux-gnu/release/{{ package_name }} \
         ./dist/deb/build
 
-    echo "> Moving assets..."
+    just info "> Moving assets..."
     mkdir ./dist/deb/build/assets
     cp -r ./assets ./dist/deb/build/
 
@@ -253,7 +263,7 @@ bundle-deb: (linux "release") (dist-guard "deb")
     cp ./static/icon_256.png ./dist/deb/build/icons
 
     pushd ./dist/deb
-    echo "> Creating bundle..."
+    just info "> Creating bundle..."
     mkdir -p output/DEBIAN
     mkdir -p output/usr/bin
     mkdir -p output/usr/share
@@ -289,11 +299,11 @@ bundle-deb: (linux "release") (dist-guard "deb")
     mv ./build/assets output/usr/share
     mv ./build/icons output/usr/share
 
-    echo "> Building with docker..."
+    just info "> Building with docker..."
     declare -a arr=("stable" "sid")
     for DEBIAN_DIST in "${arr[@]}"
     do
-        echo "> Building $DEBIAN_DIST"
+        just info "> Building $DEBIAN_DIST"
         FULL_VERSION={{ package_version }}+${DEBIAN_DIST}_x86_64
         docker build . -t raylib_rs_env:bundle_deb_${DEBIAN_DIST} \
             --build-arg DEBIAN_DIST=$DEBIAN_DIST \
@@ -306,7 +316,7 @@ bundle-deb: (linux "release") (dist-guard "deb")
     done
 
     popd
-    echo "> Bundled for Debian!"
+    just success "> Bundled for Debian!"
 
 # Create bundles for Apple Intel and Apple Silicon computers
 [parallel]
@@ -326,12 +336,12 @@ bundle-mac-aarch64: mac-guard (mac-arm "release") (dist-guard "mac-aarch64")\
 bundle-mac arch:
     #!/usr/bin/env bash
     set -euo pipefail
-    echo "> Moving build result..."
+    just imfo "> Moving build result..."
     mkdir ./dist/mac-{{ arch }}/build
     cp ./target/{{ arch }}-apple-darwin/release/{{ package_name }} \
         ./dist/mac-{{ arch }}/build
 
-    echo "> Moving assets..."
+    just info "> Moving assets..."
     mkdir ./dist/mac-{{ arch }}/build/assets
     cp -r ./assets ./dist/mac-{{ arch }}/build/
     mkdir ./dist/mac-{{ arch }}/build/icons
@@ -340,14 +350,14 @@ bundle-mac arch:
     pushd ./dist/mac-{{ arch }}
     otool -L ./build/{{ package_name }} | just ../../check-deps
 
-    echo "> Assembling bundle..."
+    just info "> Assembling bundle..."
     mkdir {{ package_name }}_{{ arch }}.app/
     mkdir {{ package_name }}_{{ arch }}.app/Contents
     mkdir {{ package_name }}_{{ arch }}.app/Contents/MacOS
     mkdir {{ package_name }}_{{ arch }}.app/Contents/Resources
     mkdir {{ package_name }}_{{ arch }}.app/Contents/Resources/Data
 
-    echo "> Clearing system cache..."
+    just info "> Clearing system cache..."
     /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/LaunchServices.framework/Versions/A/Support/lsregister\
          -f {{ package_name }}_{{ arch }}.app
 
@@ -383,11 +393,11 @@ bundle-mac arch:
     mv ./build/icons/apple_icons.icns \
         {{ package_name }}_{{ arch }}.app/Contents/Resources/icon.icns
 
-    echo "> Signing bundle..."
+    just info "> Signing bundle..."
     codesign -f -s {{ codesign_keychain_ident }} {{ package_name }}_{{ arch }}.app --deep
     popd
 
-    echo "> Bundled for MacOS-{{ arch }}!"
+    just success "> Bundled for MacOS-{{ arch }}!"
 
 # Check that the Mac target binary doesn't have unbundled dependencies
 [private]
@@ -410,13 +420,14 @@ check-deps:
 
 # Install required dependencies for raylib/Rust development
 setup: setup-emsdk setup-web setup-cross setup-platform
+    docker images --filter=reference="raylib_rs_env:*"
 
 # Install system-specific dependencies
 [private]
 setup-platform:
     #!/usr/bin/env bash
     set -euo pipefail
-    echo "> Installing raylib and platform-specific dependencies..."
+    just info "> Installing raylib and platform-specific dependencies..."
     case {{ ostype }} in
         darwin*)
             brew install raylib emscripten
@@ -425,7 +436,7 @@ setup-platform:
             pkg install raylib
             ;;
         cygwin | msys)
-            echo "> Please visit the Working on Windows[1] page on the raylib \
+            just info "> Please visit the Working on Windows[1] page on the raylib \
             repository, or the raylib-quickstart repository[2]."
             echo "> [1]: https://github.com/raysan5/raylib/wiki/Working-on-Windows"
             echo "> [2]: https://github.com/raylib-extras/raylib-quickstart"
@@ -492,17 +503,17 @@ setup-platform:
                         MesaLib-devel
                     ;;
                 *)
-                    echo "> Unknown Linux distro: $ID. Could not install \
+                    just error "> Unknown Linux distro: $ID. Could not install \
                     dependencies"
                     exit 1
                     ;;
             esac
             ;;
         *) 
-            echo "> Unknown OSTYPE: $OSTYPE. Could not set up."
+            just error "> Unknown OSTYPE: $OSTYPE. Could not set up."
             ;;
     esac
-    echo "> Please check the raylib wiki[a] to ensure the correct dependencies \
+    just info "> Please check the raylib wiki[a] to ensure the correct dependencies \
     have been installed for your platform."
     echo "> [a]: https://github.com/raysan5/raylib/wiki"
 
@@ -511,22 +522,22 @@ setup-platform:
 setup-web:
     #!/usr/bin/env bash
     set -euo pipefail
-    echo "> Installing target wasm32-unknown-emscripten..."
+    just info "> Installing target wasm32-unknown-emscripten..."
     rustup target add wasm32-unknown-emscripten
 
 # Setup cross and its dependencies
 [private]
-setup-cross:
+setup-cross: docker-guard
     #!/usr/bin/env bash
     set -euo pipefail
-    echo "> Installing cross for cross-compilation..."
+    just info "> Installing cross for cross-compilation..."
     cargo install cross --git https://github.com/cross-rs/cross
 
-    echo "> Setting up docker image for Linux cross-compilation..."
+    just info "> Setting up docker image for Linux cross-compilation..."
     rustup target add x86_64-unknown-linux-gnu
     docker build --file ./docker/cross/CrossLinux.Dockerfile -t raylib_rs_env:linux .
 
-    echo "> Setting up docker image for Windows cross-compilation..."
+    just info "> Setting up docker image for Windows cross-compilation..."
     docker build --file ./docker/cross/CrossWindows.Dockerfile -t raylib_rs_env:windows .
 
 
@@ -547,16 +558,16 @@ setup-emsdk:
     EMSDK_DIR="${EMSDK_DIR:-${XDG_DATA_HOME:-$HOME/.local/share}/emsdk}"
 
     if ! command -v git >/dev/null 2>&1; then
-        echo "[setup] git is required but not on PATH" >&2
+        just warning "[setup] git is required but not on PATH" >&2
         exit 1
     fi
     if ! command -v python3 >/dev/null 2>&1 && ! command -v python >/dev/null 2>&1; then
-        echo "[setup] python (3.x) is required by emsdk but not on PATH" >&2
+        just warning "[setup] python (3.x) is required by emsdk but not on PATH" >&2
         exit 1
     fi
 
     if [[ ! -d "$EMSDK_DIR" ]]; then
-        echo "[setup] cloning emsdk to $EMSDK_DIR"
+        just info "[setup] cloning emsdk to $EMSDK_DIR"
         git clone https://github.com/emscripten-core/emsdk.git "$EMSDK_DIR"
     else
         echo "[setup] emsdk already at $EMSDK_DIR; updating"
@@ -588,13 +599,23 @@ setup-emsdk:
 
     EOF
 
+# Ensure the Docker engine is running
+[private]
+docker-guard:
+    #!/usr/bin/env bash
+    if (! docker stats --no-stream ); then
+        just error "Docker daemon is not running!"
+        echo "Start the daemon or open Docker Desktop."
+        exit 1
+    fi
+
 # Ensure current system is running MacOS
 [private]
 mac-guard:
     #!/usr/bin/env bash
     set -euo pipefail
     if [[ ! {{ ostype }} == "darwin"* ]]; then
-        echo "This is not a MacOS system."
+        just error "This is not a MacOS system."
         exit 1
     fi
 
@@ -603,14 +624,27 @@ mac-guard:
 dist-guard platform:
     #!/usr/bin/env bash
     set -euo pipefail
-    echo "Ensuring ./dist exists..."
+    just info "Ensuring ./dist exists..."
     if [ ! -d "./dist" ]; then
         mkdir ./dist
     fi
 
-    echo "Ensuring ./dist/{{ platform }} exists and is clear..."
+    just info "Ensuring ./dist/{{ platform }} exists and is clear..."
     if [ -d "./dist/{{ platform }}" ]; then
         rm -rf ./dist/{{ platform }}/*
     else
         mkdir ./dist/{{ platform }}
     fi
+
+[private]
+success msg:
+    @echo "{{bold}}{{green}}{{msg}}{{normal}}"
+[private]
+warning msg:
+    @echo "{{bold}}{{yellow}}{{msg}}{{normal}}"
+[private]
+error msg:
+    @echo "{{bold}}{{red}}{{msg}}{{normal}}"
+[private]
+info msg:
+    @echo "{{bold}}{{blue}}{{msg}}{{normal}}"

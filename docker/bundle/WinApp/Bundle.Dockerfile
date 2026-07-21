@@ -31,9 +31,13 @@ RUN wine cmd <<EOT
 --version "${VERSION}" \
 --template packaged \
 --if-exists overwrite
+EOT
+
+RUN wine cmd <<EOT
 /winappcli/winapp pack ./dist \
 --executable $PACKAGE.exe --verbose --skip-pri \
---name "${PACKAGE}" --publisher "CN=${AUTHOR}" \
+--name "${PACKAGE}" --publisher "${AUTHOR}" \
+--self-contained \
 --output ./${PACKAGE}_${FULL_VERSION}.msix
 EOT
 
