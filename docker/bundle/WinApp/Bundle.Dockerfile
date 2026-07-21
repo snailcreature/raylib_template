@@ -7,6 +7,8 @@ ENV WINEDEBUG=-all
 ARG PACKAGE
 ARG FULL_VERSION
 ARG AUTHOR
+ARG DESCRIPTION
+ARG VERSION
 
 RUN wine cmd <<EOT
 /powershell/pwsh -c dotnet dev-certs https --trust
@@ -21,6 +23,14 @@ RUN wine cmd <<EOT
 EOT
 
 RUN wine cmd <<EOT
+/winappcli/winapp manifest generate . \
+--package-name ${PACKAGE} \
+--publisher-name "CN=${AUTHOR}" \
+--entrypoint ./dist/${PACKAGE}.exe \
+--description "${DESCRIPTION}" \
+--version "${VERSION}" \
+--template packaged \
+--if-exists overwrite
 /winappcli/winapp pack ./dist \
 --executable $PACKAGE.exe --verbose --skip-pri \
 --name "${PACKAGE}" --publisher "CN=${AUTHOR}" \

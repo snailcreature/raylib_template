@@ -164,11 +164,13 @@ bundle-windows: (dist-guard "windows")
         --build-arg PACKAGE={{ package_name }} \
         --build-arg FULL_VERSION=$FULL_VERSION \
         --build-arg AUTHOR={{ package_authors }} \
+        --build-arg DESCRIPTION="{{ package_description }}" \
+        --build-arg VERSION="{{ package_version }}" \
         --file ../../docker/bundle/WinApp/Bundle.Dockerfile
     id="$(docker create raylib_rs_env:bundle_winapp)"
     # docker cp $id:/home/wineuser/output/{{ package_name }}_$FULL_VERSION.msix - \
     #         > ./{{ package_name }}_$FULL_VERSION.msix
-    docker cp $id:/home/wineuser/output/ ./bundle/
+    docker cp $id:/home/wineuser/output/ ./bundle
 
     popd
     echo "Bundled for Windows-x86_64!"
