@@ -138,11 +138,15 @@ bundle-web: (build-web "release") (dist-guard "web")
 
     echo "Bundled for web!"
 
-# bundle-windows: (dist-guard "windows")
-bundle-windows: (windows "release") (dist-guard "windows")
+# bundle-windows: (windows "release") (dist-guard "windows")
+bundle-windows: (dist-guard "windows")
     #!/usr/bin/env bash
     set -euo pipefail
     
+    echo "Building base bundler image..."
+    docker build . -t raylib_rs_env:base_winapp \
+            --file ./docker/bundle/WinApp/Base.Dockerfile
+
     echo "Moving build result..."
     mkdir -p ./dist/windows/output/dist/data
     cp ./target/x86_64-pc-windows-gnu/release/raylib_template.exe \
@@ -156,11 +160,10 @@ bundle-windows: (windows "release") (dist-guard "windows")
     mkdir ./bundle
     echo "Running docker build. This could take a while, so go get yourself a drink..."
     FULL_VERSION={{ package_version }}_x86_64
-    docker build . -t raylib_rs_env:base_winapp \
-            --file ../../docker/bundle/WinApp/Base.Dockerfile
     docker build . -t raylib_rs_env:bundle_winapp \
         --build-arg PACKAGE={{ package_name }} \
         --build-arg FULL_VERSION=$FULL_VERSION \
+        --build-arg AUTHOR={{ package_authors }} \
         --file ../../docker/bundle/WinApp/Bundle.Dockerfile
     id="$(docker create raylib_rs_env:bundle_winapp)"
     # docker cp $id:/home/wineuser/output/{{ package_name }}_$FULL_VERSION.msix - \

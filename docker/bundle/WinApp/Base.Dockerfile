@@ -4,7 +4,14 @@ SHELL ["bash", "-c"]
 
 # https://github.com/electron-userland/electron-builder/blob/master/docker/wine/Dockerfile
 # https://medium.com/better-programming/how-to-run-any-windows-cli-app-in-a-linux-docker-container-318cd49bdd25
-RUN apt-get update && apt-get install -y wget gpg xvfb winbind
+RUN apt-get update && apt-get install -y \
+wget \
+gpg \
+xvfb \
+winbind \
+unzip \
+apt-transport-https \
+software-properties-common
 # Install wine
 RUN source /etc/os-release && \
     dpkg --add-architecture i386 && \
@@ -18,14 +25,6 @@ RUN source /etc/os-release && \
     # Wine 9.x+ removed wine64 as a standalone binary; wine on x86_64 is already 64-bit.
     # Symlink for backward compatibility with tools (e.g. electron-winstaller) that still check for wine64.
     ln -sf /usr/bin/wine /usr/bin/wine64 && \
-    # powershell
-    # https://learn.microsoft.com/en-us/powershell/scripting/install/install-ubuntu?view=powershell-7.4
-    apt-get install -yq apt-transport-https software-properties-common && \
-    wget -q https://packages.microsoft.com/config/ubuntu/22.04/packages-microsoft-prod.deb && \
-    dpkg -i packages-microsoft-prod.deb && \
-    rm packages-microsoft-prod.deb && \
-    apt-get -qq update && \
-    apt-get install -y powershell winetricks cabextract && \
     # clean
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
@@ -52,12 +51,21 @@ RUN chown -R wineuser:wineuser /winappcli \
 WORKDIR /home/wineuser
 USER wineuser
 
+RUN echo "export XDG_RUNTIME_DIR=/run/user/$(id -u)" >> ~/.bashrc \
+&& source ~/.bashrc
+
 # Set up wine
-ENV WINEDEBUG=-all,fixme+all
+ENV WINEDEBUG=-all,fixme+all,err+all,err-winediag,err-systray
 ENV WINEDLLOVERRIDES=winemenubuilder.exe=d
 ENV WINEARCH=win64
 
-ENV WINETRICKS_DOWNLOADER="wget"
+# ENV WINETRICKS_DOWNLOADER="wget"
+
+RUN wine cmd <<EOT
+/powershell/pwsh -c Write-Output "Hello, from Powershell!"
+/powershell/pwsh -c Add-AppxPackage -RegisterByFamilyName -MainPackage Microsoft.DesktopAppInstaller_8wekyb3d8bbwe
+/powershell/pwsh -c winget install Microsoft.Windows.Common-Controls
+EOT
 
 RUN winecfg
 
@@ -73,11 +81,11 @@ RUN wineboot --init 2>/tmp/wb.log; \
 # Install wine-mono
 RUN msiexec /i /usr/share/wine/mono/wine-mono-11.2.0-x86.msi /qn /nogui
 
-RUN wine /powershell/pwsh.exe -c "Write-Output 'Hello, from Powershell!'; \
-Add-AppxPackage -RegisterByFamilyName -MainPackage Microsoft.DesktopAppInstaller_8wekyb3d8bbwe; \
-winget install Microsoft.DotNet.SDK.10; \
-dotnet add package Microsoft.WindowsAppSDK; \
-dotnet add package Microsoft.Windows.SDK.BuildTools"
+RUN wine cmd <<EOT
+/powershell/pwsh -c winget install Microsoft.DotNet.SDK.10
+/powershell/pwsh -c dotnet add package Microsoft.WindowsAppSDK
+/powershell/pwsh -c dotnet add package Microsoft.Windows.SDK.BuildTools
+EOT
 
 # Check winappcli is working
 RUN wine cmd <<EOT
