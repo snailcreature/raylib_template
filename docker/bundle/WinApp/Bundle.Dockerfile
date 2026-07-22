@@ -10,20 +10,20 @@ ARG AUTHOR
 ARG DESCRIPTION
 ARG VERSION
 
-RUN wine cmd <<EOT
-/powershell/pwsh -c dotnet dev-certs https --trust
-EOT
-
 RUN mkdir -p ./output
 COPY output/ ./output
 WORKDIR ./output
 
+RUN wineboot --restart
+
+# Initialise
 RUN wine cmd <<EOT
-/winappcli/winapp init . --verbose --no-prompt
+winapp init . --verbose --no-prompt --use-defaults
 EOT
 
+# Generate the app manifest
 RUN wine cmd <<EOT
-/winappcli/winapp manifest generate . \
+winapp manifest generate . \
 --package-name ${PACKAGE} \
 --publisher-name "CN=${AUTHOR}" \
 --entrypoint ./dist/${PACKAGE}.exe \
@@ -33,13 +33,16 @@ RUN wine cmd <<EOT
 --if-exists overwrite
 EOT
 
+# Package
 RUN wine cmd <<EOT
-/winappcli/winapp pack ./dist \
+winapp pack ./dist \
 --executable $PACKAGE.exe --verbose --skip-pri \
---name "${PACKAGE}" --publisher "${AUTHOR}" \
---self-contained \
+--publisher "CN=${AUTHOR}" \
+--self-contained --generate-cert --install-cert \
 --output ./${PACKAGE}_${FULL_VERSION}.msix
 EOT
 
 RUN ls -a
 RUN ls dist -a
+
+RUN wineboot --shutdown --end-session

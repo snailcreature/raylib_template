@@ -148,13 +148,13 @@ bundle-web: (build-web "release") (dist-guard "web")
     just success "Bundled for web!"
 
 # bundle-windows: (windows "release") (dist-guard "windows")
-bundle-windows: docker-guard (dist-guard "windows")
+[positional-arguments]
+[arg("no-cache", pattern="--no-cache|nil")]
+bundle-windows no-cache="nil": docker-guard (dist-guard "windows")
     #!/usr/bin/env bash
     set -euo pipefail
-    
-    just info "Building base bundler image..."
-    docker build . -t raylib_rs_env:base_winapp \
-            --file ./docker/bundle/WinApp/Base.Dockerfile
+
+    just build-winapp-base {{ no-cache }}
 
     just info "Moving build result..."
     mkdir -p ./dist/windows/output/dist/data
@@ -176,6 +176,7 @@ bundle-windows: docker-guard (dist-guard "windows")
         --build-arg AUTHOR={{ package_authors }} \
         --build-arg DESCRIPTION="{{ package_description }}" \
         --build-arg VERSION="{{ package_version }}" \
+        {{ if no-cache == "--no-cache" { "--no-cache" } else {""} }} \
         --file ../../docker/bundle/WinApp/Bundle.Dockerfile
     id="$(docker create raylib_rs_env:bundle_winapp)"
     # docker cp $id:/home/wineuser/output/{{ package_name }}_$FULL_VERSION.msix - \
@@ -184,6 +185,14 @@ bundle-windows: docker-guard (dist-guard "windows")
 
     popd
     just success "Bundled for Windows-x86_64!"
+
+[private]
+[arg("no-cache", pattern="--no-cache|nil")]
+build-winapp-base no-cache="nil":
+    @just info "Building base bundler image..."
+    docker build . -t raylib_rs_env:base_winapp \
+        {{ if no-cache == "--no-cache" { "--no-cache" } else {""} }} \
+        --file ./docker/bundle/WinApp/Base.Dockerfile
 
 # Build and bundle an AppImage for Linux distribution
 bundle-linux: docker-guard (linux "release") (dist-guard "linux")

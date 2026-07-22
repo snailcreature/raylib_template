@@ -25,15 +25,19 @@ RUN source /etc/os-release && \
     # Wine 9.x+ removed wine64 as a standalone binary; wine on x86_64 is already 64-bit.
     # Symlink for backward compatibility with tools (e.g. electron-winstaller) that still check for wine64.
     ln -sf /usr/bin/wine /usr/bin/wine64 && \
+    wget -q https://packages.microsoft.com/config/ubuntu/22.04/packages-microsoft-prod.deb && \
+    dpkg -i packages-microsoft-prod.deb && \
+    rm packages-microsoft-prod.deb && \
+    apt-get -qq update && \
+    apt-get -y install powershell && \
     # clean
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
+    apt-get clean 
 
 # Download wine-mono for DotNet compatibility
 RUN wget -P /usr/share/wine/mono https://dl.winehq.org/wine/wine-mono/11.2.0/wine-mono-11.2.0-x86.msi
 
 # Install winappcli
-RUN wget -P /winappcli https://github.com/microsoft/winappCli/releases/download/v0.4.0/winappcli-x64.zip
+RUN wget -P /winappcli https://github.com/microsoft/winappCli/releases/download/v0.5.0/winappcli-x64.zip
 RUN pushd /winappcli && \
 unzip winappcli-x64.zip && \
 popd
@@ -43,6 +47,12 @@ popd
 RUN wget -P /powershell https://github.com/PowerShell/PowerShell/releases/download/v7.6.3/PowerShell-7.6.3-win-x64.zip
 RUN pushd /powershell && \
 unzip PowerShell-7.6.3-win-x64.zip && \
+popd
+
+# Install donetsdk
+RUN wget -P /dotnet https://builds.dotnet.microsoft.com/dotnet/Sdk/10.0.302/dotnet-sdk-10.0.302-win-x64.zip
+RUN pushd /dotnet && \
+unzip dotnet-sdk-10.0.302-win-x64.zip && \
 popd
 
 RUN adduser wineuser --quiet --disabled-login --home /home/wineuser --gecos ,,,
@@ -55,19 +65,13 @@ RUN echo "export XDG_RUNTIME_DIR=/run/user/$(id -u)" >> ~/.bashrc \
 && source ~/.bashrc
 
 # Set up wine
-ENV WINEDEBUG=-all,fixme+all,err+all,err-winediag,err-systray
-ENV WINEDLLOVERRIDES=winemenubuilder.exe=d
+ENV WINEDEBUG=-all,err+all,err-winediag,err-systray
+ENV WINEDLLPATH="/powershell:/dotnet/10.0.302"
+ENV WINEPATH="Z:\\powershell;Z:\\winappcli;Z:\\dotnet"
+ENV WINEDLLOVERRIDES=winemenubuilder.exe=
 ENV WINEARCH=win64
 
 # ENV WINETRICKS_DOWNLOADER="wget"
-
-RUN wine cmd <<EOT
-/powershell/pwsh -c Write-Output "Hello, from Powershell!"
-/powershell/pwsh -c Add-AppxPackage -RegisterByFamilyName -MainPackage Microsoft.DesktopAppInstaller_8wekyb3d8bbwe
-/powershell/pwsh -c winget install Microsoft.Windows.Common-Controls
-EOT
-
-RUN winecfg
 
 RUN wineboot --init 2>/tmp/wb.log; \
   if [ $? -ne 0 ]; then \
@@ -78,16 +82,44 @@ RUN wineboot --init 2>/tmp/wb.log; \
   fi; \
   rm -f /tmp/wb.log
 
+RUN wine reg add "HKCU\\Environment" /v PATH /t REG_EXPAND_SZ \
+/d "Z:\\winappcli;%PATH%" /f \
+&& wine reg add "HKCU\\Environment" /v PATH /t REG_EXPAND_SZ \
+/d "Z:\\powershell;%PATH%" /f \
+&& wine reg add "HKCU\\Environment" /v DOTNET_ROOT /t REG_EXPAND_SZ \
+/d "Z:\\dotnet" /f \
+&& wine reg add "HKCU\\Environment" /v PATH /t REG_EXPAND_SZ \
+/d "%DOTNET_ROOT%;%PATH%" /f \
+&& wine reg add "HKCU\\Environment" /v DOTNET_CLI_TELEMETRY_OPTOUT \
+/d "true" /f \
+&& wineboot --update
+
+# pwsh -c Add-AppxPackage -RegisterByFamilyName -MainPackage Microsoft.DesktopAppInstaller_8wekyb3d8bbwe
+RUN wine cmd <<EOT
+pwsh -c $progressPreference = 'silentlyContinue'; \
+Write-Host "Installing WinGet PowerShell module from PSGallery..."; \
+Install-PackageProvider -Name NuGet -Force | Out-Null; \
+Install-Module -Name Microsoft.WinGet.Client -Force -Repository PSGallery | \
+Out-Null; \
+Write-Host "Using Repair-WinGetPackageManager cmdlet to bootstrap WinGet..."; \
+Repair-WinGetPackageManager -AllUsers; \
+Write-Host "Done."
+pwsh -c winget install Microsoft.Windows.Common-Controls
+EOT
+
 # Install wine-mono
 RUN msiexec /i /usr/share/wine/mono/wine-mono-11.2.0-x86.msi /qn /nogui
 
 RUN wine cmd <<EOT
-/powershell/pwsh -c winget install Microsoft.DotNet.SDK.10
-/powershell/pwsh -c dotnet add package Microsoft.WindowsAppSDK
-/powershell/pwsh -c dotnet add package Microsoft.Windows.SDK.BuildTools
+dotnet help
+dotnet dev-certs https --trust --quiet
 EOT
+
+RUN wineboot --update
 
 # Check winappcli is working
 RUN wine cmd <<EOT
-/winappcli/winapp --help
+winapp --help
 EOT
+
+RUN wineboot --shutdown --end-session
