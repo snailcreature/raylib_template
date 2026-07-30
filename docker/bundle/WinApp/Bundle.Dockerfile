@@ -11,6 +11,7 @@ ARG DESCRIPTION
 ARG VERSION
 
 RUN mkdir -p ./output
+WORKDIR ./output
 
 RUN wineboot --restart
 
@@ -19,8 +20,7 @@ RUN wine cmd <<EOT
 winapp init . --verbose --no-prompt --use-defaults
 EOT
 
-COPY output/ ./output
-WORKDIR ./output
+COPY output/ ./
 
 # Generate the app manifest
 RUN wine cmd <<EOT
