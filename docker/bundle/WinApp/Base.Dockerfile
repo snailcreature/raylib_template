@@ -1,4 +1,4 @@
-FROM ubuntu:latest AS base
+FROM debian:stable-slim AS base
 ENV DEBIAN_FRONTEND=noninteractive
 SHELL ["bash", "-c"]
 
@@ -9,9 +9,7 @@ wget \
 gpg \
 xvfb \
 winbind \
-unzip \
-apt-transport-https \
-software-properties-common
+unzip
 # Install wine
 RUN source /etc/os-release && \
     dpkg --add-architecture i386 && \
@@ -19,17 +17,18 @@ RUN source /etc/os-release && \
     # wine
     # https://gitlab.winehq.org/wine/wine/-/wikis/Debian-Ubuntu#install-wine
     wget -O - https://dl.winehq.org/wine-builds/winehq.key | gpg --dearmor -o /etc/apt/keyrings/winehq-archive.key - && \
-    wget -NP /etc/apt/sources.list.d/ https://dl.winehq.org/wine-builds/ubuntu/dists/$UBUNTU_CODENAME/winehq-$UBUNTU_CODENAME.sources && \
+    wget -NP /etc/apt/sources.list.d/ \
+    https://dl.winehq.org/wine-builds/debian/dists/$VERSION_CODENAME/winehq-$VERSION_CODENAME.sources && \
     apt-get -qq update && \
     apt-get -qq install -y --install-recommends winehq-stable && \
     # Wine 9.x+ removed wine64 as a standalone binary; wine on x86_64 is already 64-bit.
     # Symlink for backward compatibility with tools (e.g. electron-winstaller) that still check for wine64.
     ln -sf /usr/bin/wine /usr/bin/wine64 && \
-    wget -q https://packages.microsoft.com/config/ubuntu/22.04/packages-microsoft-prod.deb && \
+    wget -q https://packages.microsoft.com/config/debian/$VERSION_ID/packages-microsoft-prod.deb && \
     dpkg -i packages-microsoft-prod.deb && \
     rm packages-microsoft-prod.deb && \
     apt-get -qq update && \
-    apt-get -y install powershell && \
+    apt-get -y install powershell apt-transport-https && \
     # clean
     apt-get clean 
 
