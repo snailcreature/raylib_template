@@ -398,7 +398,7 @@ setup-platform:
             sudo apt install build-essential git
             . /etc/os-release
             case $ID in
-                ubuntu*)
+                ubuntu* | pop*)
                     sudo apt install \
                         libasound2-dev \
                         libx11-dev \
