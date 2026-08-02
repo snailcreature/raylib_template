@@ -41,9 +41,15 @@ clean:
     fi
 
 # Build for current system
-[arg('profile', pattern='dev|release')]
+[arg('profile', pattern='dev|release|preview')]
 build profile="dev":
     cargo build --profile {{ profile }}
+
+# Build for the current system and run
+[arg('profile', pattern='dev|release|preview')]
+run profile="dev": (build profile)
+    cp -r assets/ target/{{ profile }}/assets/
+    cargo run --profile {{ profile }}
 
 # Run the dev profile for current system
 dev:

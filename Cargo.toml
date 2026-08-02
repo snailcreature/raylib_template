@@ -28,13 +28,21 @@ opt-level = 3
 
 [profile.release]
 codegen-units = 1
-lto = "thin"
+lto = "fat"
 strip = "debuginfo"
 opt-level = 3
 debug-assertions = false
+panic = "abort"
 
 [profile.release.package."*"]
 debug-assertions = false
+
+[profile.preview]
+inherits = "release"
+debug-assertions = true
+
+[profile.preview.package.platform_compat]
+debug-assertions = true
 
 [profile.web-release]
 inherits = "release"

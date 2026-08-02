@@ -2,6 +2,12 @@
 CFLAGS_wasm32_unknown_emscripten = "-fwasm-exceptions -sSUPPORT_LONGJMP=wasm"
 CXXFLAGS_wasm32_unknown_emscripten = "-fwasm-exceptions -sSUPPORT_LONGJMP=wasm"
 
+[target."cfg(not(debug_assertions))"]
+rustflags = [
+    "-Cprofile-generate=/tmp/pgo-data",
+    "-Cprofile-use=/tmp/pgo-data", "-Cllvm-args=-pgo-warn-missing-function",
+]
+
 [target.wasm32-unknown-emscripten]
 rustflags = [
     "-C", "link-arg=-sMIN_WEBGL_VERSION=2",
